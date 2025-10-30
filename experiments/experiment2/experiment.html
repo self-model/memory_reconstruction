@@ -1,0 +1,2223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Reconstruction Experiment</title>
+
+
+
+
+
+    <script src="jatos.js"></script>
+    <script src="mersenne-twister.js"></script>
+    <script src="crypto-js.min.js"></script>
+
+
+    <script src="https://unpkg.com/jspsych@6.3.1/jspsych.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-html-button-response.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-survey-multi-choice.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-instructions.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-fullscreen.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-external-html.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-survey-text.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-survey-html-form.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-html-slider-response.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-preload.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-call-function.js"></script>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+
+    <link href="https://unpkg.com/jspsych@6.3.1/css/jspsych.css" rel="stylesheet" type="text/css" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f1f5f9;
+            margin: 0;
+        }
+
+        .p5_loading {
+            display: none;
+        }
+
+        #jspsych-content {
+            max-width: 900px !important;
+            /* Forces the content area to be wider */
+        }
+
+        .jspsych-content {
+            overflow-x: hidden !important;
+        }
+
+        .jspsych-html-slider-response-container {
+            max-width: 500px;
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        .jspsych-survey-multi-choice-question-prompt {
+            font-size: 22px;
+            font-weight: 600;
+            color: #1e293b;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+
+        .jspsych-survey-multi-choice-option {
+            display: flex !important;
+            align-items: flex-start;
+            text-align: left;
+            margin: 12px 0;
+            font-size: 18px;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .jspsych-survey-multi-choice-option input[type="radio"] {
+            flex-shrink: 0;
+            margin-right: 12px;
+            margin-top: 0.2em;
+        }
+
+
+
+
+        .leaderboard-table {
+            border-collapse: collapse;
+            margin: 2rem auto;
+            font-size: 1.125rem;
+            width: 100%;
+            max-width: 24rem;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+
+        .leaderboard-table thead tr {
+            background-color: #10b981;
+            color: white;
+            font-weight: 600;
+        }
+
+        .leaderboard-table tbody tr:nth-child(even) {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="jspsych-target"></div>
+
+    <script>
+        jsPsych.plugins['testmouse'] = (function () {
+
+            var plugin = {};
+
+            plugin.info = {
+                name: 'testmouse',
+                parameters: {
+                    phase: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Phase',
+                        default: null,
+                        description: 'Which phase of the experiment is it: "part1" or "part2"?'
+                    },
+                    left_word: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Word 1',
+                        default: null,
+                        description: 'Word on the left hand side'
+                    },
+                    middle_word: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Word 2',
+                        default: null,
+                        description: 'Word in the middle'
+                    },
+                    right_word: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Word 3',
+                        default: null,
+                        description: 'Word on the right hand side'
+                    },
+                    left_number: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Number 1',
+                        default: 0,
+                        description: 'Number on the left hand side'
+                    },
+                    middle_number: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Number 2',
+                        default: 0,
+                        description: 'Number in the middle'
+                    },
+                    right_number: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Number 3',
+                        default: 0,
+                        description: 'Number on the right hand side'
+                    },
+                    is_show_trial: {
+                        type: jsPsych.plugins.parameterType.BOOL,
+                        pretty_name: 'Is Show Trial',
+                        default: false,
+                        description: 'In Part 2, when true, participants see the contents of the box.'
+                    },
+                    is_catch_trial: {
+                        type: jsPsych.plugins.parameterType.BOOL,
+                        pretty_name: 'Is Catch Trial',
+                        default: false,
+                        description: 'In Part 2, when true, participants see the contents of the box.'
+                    },
+                    trial_num: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Trial Number',
+                        default: 0,
+                        description: 'Trial number'
+                    },
+                    progress: {
+                        type: jsPsych.plugins.parameterType.FLOAT,
+                        pretty_name: 'Progress',
+                        default: 0,
+                        description: 'Trial progress for the progress bar (0 to 1).'
+                    },
+                    correct_choice_position: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Correct Choice Position',
+                        default: null,
+                        description: 'The position of the gems ("left", "middle", or "right").'
+                    },
+                    part1_response_position: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Part 1 Response Position',
+                        default: null,
+                        description: 'For Part 2, the response the participant gave in Part 1.'
+                    },
+                    emeraldposition: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Emerald Position',
+                        default: null,
+                        description: 'Which position holds emeralds if correct.'
+                    },
+                    stoneposition: {
+                        type: jsPsych.plugins.parameterType.STRING,
+                        pretty_name: 'Stone Position',
+                        default: null,
+                        description: 'Which position always holds stones'
+                    },
+                    feedback_duration: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Feedback Duration',
+                        default: 500,
+                        description: 'How long to wait before showing full feedback in Part 1.'
+                    },
+                    current_score: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Current Score',
+                        default: 0,
+                        description: 'The cumulative score from previous trials.'
+                    }
+                }
+            }
+
+            plugin.trial = function (display_element, trial) {
+                display_element.innerHTML = '';
+
+
+                let sketch = function (p) {
+                    // variables
+                    let State = 'waiting';
+                    let mouse_log = { x: [], y: [], t: [], universal_x: [], universal_y: [], hover_location: [] };
+                    let hover_frame_counts = { left: 0, middle: 0, right: 0, none: 0 };
+                    // Track hover times in ms for each box
+                    let hover_times = { left: 0, middle: 0, right: 0, none: 0 };
+                    let last_hover = 'none';
+                    let last_hover_time = null;
+                    let click_log = { choice: null, rt: null, choice_position: null, click_duration: [] };
+                    let frame_rate_log = [];
+                    let startTime;
+                    let continue_button_dims;
+                    let boxes = [];
+                    let images = {};
+                    const positions = ['left', 'middle', 'right'];
+                    let chose_gems = false;
+                    let chose_other = false;
+                    let chose_onlystones = false;
+                    let score_for_this_trial = trial.current_score;
+
+                    // colors used for experiment
+                    const colors = {
+                        background: p.color(241, 245, 249),
+                        box_default: p.color(255),
+                        text: p.color(51, 65, 85),
+                        progress_bar_bg: p.color(226, 232, 240),
+                        progress_bar_fill: p.color(37, 99, 235),
+                        feedback_ruby: p.color(239, 68, 68),
+                        feedback_emerald: p.color(34, 197, 94),
+                        feedback_incorrect: p.color(0)
+                    };
+
+
+
+                    // setup 
+                    p.setup = function () {
+
+                        p.createCanvas(p.windowWidth, p.windowHeight);
+                        images.ruby = p.loadImage('assets/ruby.png');
+                        images.emerald = p.loadImage('assets/emerald.png');
+                        images.stone = p.loadImage('assets/stone.png');
+                        p.textFont('Inter');
+                        p.frameRate(60);
+                        setupStimuli();
+                        startTime = p.millis();
+                    };
+
+                    // create containers for stimuli
+                    function setupStimuli() {
+                        const box_width = 180;
+                        const box_height = 120;
+                        const total_width = 540 + 64;
+
+                        const gap = (total_width - 3 * box_width) / 2;
+
+                        const start_x = (p.width - total_width) / 2;
+                        const y = p.height / 3;
+                        const words = [trial.left_word, trial.middle_word, trial.right_word];
+                        const numbers = [trial.left_number, trial.middle_number, trial.right_number];
+                        for (let i = 0; i < 3; i++) {
+                            boxes.push({ x: start_x + i * (box_width + gap), y: y, w: box_width, h: box_height, word: words[i], number: numbers[i], position: positions[i] });
+                        }
+                        continue_button_dims = { x: p.width / 2 - 75, y: y + box_height + 250, w: 150, h: 50 };
+                    }
+
+                    p.mouseMoved = function () {
+                        if (startTime > 0) {
+                            const now = p.millis();
+                            const universal_coordinates = screen_coordinates_to_universal_coordinates(p.mouseX, p.mouseY);
+
+                            mouse_log.x.push(p.mouseX);
+                            mouse_log.y.push(p.mouseY);
+                            mouse_log.universal_x.push(universal_coordinates.x);
+                            mouse_log.universal_y.push(universal_coordinates.y);
+                            mouse_log.t.push(Math.round(now - startTime));
+
+                            let current_hover = 'none';
+                            for (const box of boxes) {
+                                if (p.mouseX > box.x && p.mouseX < box.x + box.w && p.mouseY > box.y && p.mouseY < box.y + box.h) {
+                                    current_hover = box.position;
+                                    break;
+                                }
+                            }
+                            mouse_log.hover_location.push(current_hover);
+                            hover_frame_counts[current_hover]++;
+
+                            if (last_hover !== current_hover) {
+                                if (last_hover_time !== null) {
+                                    hover_times[last_hover] += now - last_hover_time;
+                                }
+                                last_hover = current_hover;
+                                last_hover_time = now;
+                            }
+                        }
+
+                    };
+
+                    // draw 
+                    p.draw = function () {
+                        p.background(colors.background);
+                        drawProgressBar();
+                        drawScoreBoard();
+                        drawBoxes();
+                        frame_rate_log.push(p.frameRate());
+
+
+
+
+                        if (trial.phase === 'part1') {
+                            if (State === 'feedback' || State === 'finished') {
+                                drawFeedbackText();
+                            }
+                            if (State === 'finished') {
+                                drawContinueButton();
+                            }
+                        }
+
+                        let is_interactive_element_hovered = false;
+
+                        if (State === 'waiting') {
+                            for (const box of boxes) {
+                                if (p.mouseX > box.x && p.mouseX < box.x + box.w && p.mouseY > box.y && p.mouseY < box.y + box.h) {
+                                    is_interactive_element_hovered = true;
+                                    break;
+                                }
+                            }
+                        } else if (State === 'finished' && trial.phase === 'part1') {
+                            const btn = continue_button_dims;
+                            if (p.mouseX > btn.x && p.mouseX < btn.x + btn.w && p.mouseY > btn.y && p.mouseY < btn.y + btn.h) {
+                                is_interactive_element_hovered = true;
+                            }
+                        }
+
+                        if (is_interactive_element_hovered) {
+                            p.cursor('pointer');
+                        } else {
+                            p.cursor(p.ARROW);
+                        }
+
+                    };
+
+
+
+                    function screen_coordinates_to_universal_coordinates(x, y) {
+                        const leftBox = boxes[0];
+                        const rightBox = boxes[2];
+
+                        const boxX = leftBox.x;
+                        const boxY = leftBox.y;
+
+                        const box_width = 180;
+                        const box_height = 120;
+                        const total_width = 540 + 64;
+
+                        const gap = (total_width - 3 * box_width) / 2;
+
+                        const translatedX = (x - boxX) / (box_width * 3 + gap);
+                        const translatedY = (y - boxY) / box_height;
+
+                        return { x: translatedX, y: translatedY };
+                    }
+
+
+                    // drawing progress bar
+                    function drawProgressBar() {
+                        const bar_width = 604;
+                        const bar_height = 10;
+                        const x = (p.width - bar_width) / 2;
+                        const y = p.height / 3 - 80;
+                        p.push();
+                        p.noStroke();
+                        p.fill(colors.progress_bar_bg);
+                        p.rect(x, y, bar_width, bar_height, 5);
+                        p.fill(colors.progress_bar_fill);
+                        p.rect(x, y, bar_width * trial.progress, bar_height, 5);
+                        p.pop();
+                    }
+
+                    // drawing boxes 
+                    function drawBoxes() {
+                        for (let i = 0; i < boxes.length; i++) {
+                            const box = boxes[i];
+                            const is_chosen = (i === click_log.choice);
+
+                            const is_correct = (box.position === trial.correct_choice_position)
+
+
+
+                            p.push();
+                            p.strokeWeight(3);
+                            let border_color = colors.box_default;
+                            let show_content = false;
+                            if (trial.phase === 'part1') {
+                                if (State === 'feedback' && is_chosen) {
+                                    border_color = getBorderColor(is_correct);
+                                    show_content = true;
+                                }
+                                if (State === 'finished') {
+                                    border_color = getBorderColor(is_correct);
+                                    show_content = true;
+                                }
+                            } else {
+                                if (trial.is_show_trial) {
+                                    border_color = getBorderColor(is_correct);
+                                    show_content = false;
+                                }
+                            }
+                            p.stroke(border_color);
+                            p.fill(colors.box_default);
+                            p.rect(box.x, box.y, box.w, box.h);
+                            p.noStroke();
+                            p.fill(colors.text);
+                            p.textAlign(p.CENTER, p.CENTER);
+                            p.textSize(24);
+                            p.textStyle(p.BOLD);
+                            const centerX = box.x + box.w / 2;
+                            const centerY = box.y + box.h / 2;
+                            p.text(box.word, centerX, centerY - 14);
+                            p.text(`(${box.number})`, centerX, centerY + 14);
+                            p.textStyle(p.NORMAL);
+                            if (show_content) {
+                                let img_to_draw = is_correct ? images.emerald : images.stone;
+                                drawBoxContent(box, img_to_draw);
+                            }
+                            p.pop();
+                        }
+                    }
+
+                    // function for getting the border color (red/green/black)
+                    function getBorderColor(is_correct) {
+                        if (is_correct) {
+                            return colors.feedback_emerald;
+                        }
+                        return colors.feedback_incorrect;
+                    }
+
+                    // function for drawing gems and stones
+                    function drawBoxContent(box, img) {
+                        const img_size = 48;
+                        const img_y_start = box.y + box.h + 5;
+                        for (let i = 0; i < box.number; i++) {
+                            p.image(img, box.x + box.w / 2 - img_size / 2, img_y_start + i * (img_size * 1), img_size, img_size);
+
+
+                        }
+                    }
+
+                    // function for drawing the feedback text 
+                    function drawFeedbackText() {
+                        const box = boxes[click_log.choice];
+                        if (!box) return;
+                        const is_correct = (box.position === trial.correct_choice_position);
+                        let txt = is_correct ? `You earned ${box.number} gems!` : `Oh no, you got ${box.number} stones`;
+                        let txt_color = is_correct ? getBorderColor(true) : colors.feedback_incorrect;
+                        p.push();
+                        p.noStroke();
+                        p.fill(txt_color);
+                        p.textSize(28);
+                        p.textAlign(p.CENTER, p.TOP);
+                        p.text(txt, p.width / 2, p.height / 3 - 40);
+                        p.pop();
+                    }
+
+                    // continue button
+                    function drawContinueButton() {
+                        p.push();
+                        p.fill(colors.progress_bar_fill);
+                        p.noStroke();
+                        p.rect(continue_button_dims.x, continue_button_dims.y, continue_button_dims.w, continue_button_dims.h, 5);
+                        p.fill(255);
+                        p.textSize(18);
+                        p.textAlign(p.CENTER, p.CENTER);
+                        p.text("Continue", continue_button_dims.x + continue_button_dims.w / 2, continue_button_dims.y + continue_button_dims.h / 2);
+                        p.pop();
+                    }
+
+                    // score board
+                    function drawScoreBoard() {
+                        if (trial.phase !== 'part1') return;
+                        const box_width = 150;
+                        const box_height = 50;
+                        const x = p.width - box_width - 20;
+                        const y = 20;
+                        p.push();
+                        p.fill(255);
+                        p.stroke(220);
+                        p.rect(x, y, box_width, box_height, 8);
+                        p.fill(colors.text);
+                        p.noStroke();
+                        p.textSize(18);
+                        p.textStyle(p.BOLD);
+                        p.textAlign(p.CENTER, p.CENTER);
+                        p.text(`Points: ${score_for_this_trial}`, x + box_width / 2, y + box_height / 2);
+                        p.pop();
+                    }
+
+                    p.mousePressed = function () {
+                        for (let i = 0; i < boxes.length; i++) {
+                            const box = boxes[i];
+                            if (p.mouseX > box.x && p.mouseX < box.x + box.w && p.mouseY > box.y && p.mouseY < box.y + box.h) {
+                                const pressTime = p.millis();
+                                // Optionally, store which box was pressed if needed
+                                click_log.click_duration.push(pressTime - startTime);
+                                break;
+                            }
+                        }
+                    };
+
+                    p.mouseReleased = function () {
+                        for (let i = 0; i < boxes.length; i++) {
+                            const box = boxes[i];
+                            if (p.mouseX > box.x && p.mouseX < box.x + box.w && p.mouseY > box.y && p.mouseY < box.y + box.h) {
+                                const releaseTime = p.millis();
+                                click_log.click_duration.push(releaseTime - startTime);
+                                break;
+                            }
+                        }
+                    };
+
+
+                    p.mouseClicked = function () {
+
+                        if (State === 'waiting') {
+
+                            for (let i = 0; i < boxes.length; i++) {
+                                const box = boxes[i];
+
+                                if (p.mouseX > box.x && p.mouseX < box.x + box.w && p.mouseY > box.y && p.mouseY < box.y + box.h) {
+
+                                    const choiceTime = p.millis();
+                                    click_log = {
+                                        choice: i,
+                                        rt: choiceTime - startTime,
+                                        choice_position: positions[i],
+                                        click_position_raw: [p.mouseX, p.mouseY],
+                                        click_position_universal: screen_coordinates_to_universal_coordinates(p.mouseX, p.mouseY),
+                                        click_duration: (click_log && Array.isArray(click_log.click_duration)) ? click_log.click_duration : []
+                                    };
+
+
+                                    if (trial.phase === 'part1') {
+                                        const is_correct = (click_log.choice_position === trial.correct_choice_position);
+
+                                        if (is_correct) {
+                                            score_for_this_trial += box.number;
+                                            chose_gems = true;
+                                        } else {
+                                            chose_onlystones = click_log.choice_position === trial.stoneposition;
+                                            chose_other = chose_onlystones ? false : true
+                                        }
+                                        State = 'feedback';
+                                        setTimeout(() => {
+                                            State = 'finished';
+                                        }, trial.feedback_duration);
+                                    } else {
+                                        const is_consistent = (click_log.choice_position === trial.part1_response_position)
+                                        if (is_consistent) {
+                                            score_for_this_trial += 3
+                                        }
+                                        chose_gems = (click_log.choice_position === trial.correct_choice_position);
+                                        chose_onlystones = click_log.choice_position === trial.stoneposition;
+                                        chose_other = !(chose_gems || chose_onlystones);
+                                        State = 'finished';
+                                        setTimeout(endTrial, 200);
+                                    }
+
+
+                                    break;
+                                }
+                            }
+                        }
+
+                        else if (State === 'finished' && trial.phase === 'part1') {
+                            if (p.mouseX > continue_button_dims.x && p.mouseX < continue_button_dims.x + continue_button_dims.w && p.mouseY > continue_button_dims.y && p.mouseY < continue_button_dims.y + continue_button_dims.h) {
+                                endTrial();
+                            }
+                        }
+                    };
+
+                    // logging data
+                    function endTrial() {
+                        const total_frames = p.frameCount;
+                        const sum_of_rates = frame_rate_log.reduce((a, b) => a + b, 0);
+                        const average_frame_rate = (sum_of_rates / frame_rate_log.length);
+                        p.noLoop();
+                        p.remove();
+                        // On trial end, add time for last hover
+                        if (last_hover_time !== null) {
+                            hover_times[last_hover] += p.millis() - last_hover_time;
+                        }
+                        const trial_data = {
+                            ...trial, // phase, left/middle/right_word, left/middle/right_number, is_show_trial, is_catch_trial, trial_num, progress, correct_choice_position, part1_response_position, emeraldposition, stoneposition, feedback_duration, current_score
+                            response: click_log.choice,
+                            response_position: click_log.choice_position,
+                            rt: click_log.rt,
+                            mouse_log: mouse_log,
+                            cumulative_score: score_for_this_trial,
+                            is_consistent: (trial.phase === 'part2') ? (click_log.choice_position === trial.part1_response_position) : null,
+                            chose_gems: chose_gems,
+                            chose_onlystones: click_log.choice_position === trial.stoneposition,
+                            chose_other: !(chose_gems || (click_log.choice_position === trial.stoneposition)),
+                            fps: average_frame_rate,
+                            total_frames: total_frames,
+                            frames_hover_left: hover_frame_counts.left,
+                            frames_hover_middle: hover_frame_counts.middle,
+                            frames_hover_right: hover_frame_counts.right,
+                            frames_hover_none: hover_frame_counts.none,
+                            hover_time_left: hover_times.left,
+                            hover_time_middle: hover_times.middle,
+                            hover_time_right: hover_times.right,
+                            hover_time_none: hover_times.none,
+                            click_position_raw: click_log.click_position_raw,
+                            click_position_universal: click_log.click_position_universal,
+                            click_duration: click_log.click_duration.join(';'),
+                        };
+                        if (trial_data.mouse_log) {
+                            trial_data.mouse_x = trial_data.mouse_log.x.join(';');
+                            trial_data.mouse_y = trial_data.mouse_log.y.join(';');
+                            trial_data.mouse_t = trial_data.mouse_log.t.join(';');
+                            trial_data.mouse_universal_x = trial_data.mouse_log.universal_x.join(';');
+                            trial_data.mouse_universal_y = trial_data.mouse_log.universal_y.join(';');
+                            trial_data.hover_location = trial_data.mouse_log.hover_location.join(';');
+                            delete trial_data.mouse_log;
+                        }
+
+                        display_element.innerHTML = '';
+                        jsPsych.finishTrial(trial_data);
+                    }
+                };
+                let myp5 = new p5(sketch);
+            };
+
+            return plugin;
+
+        })();
+
+
+        jsPsych.plugins['jspsych-p5-vertical-slider'] = (function () {
+            var plugin = {};
+
+            plugin.info = {
+                name: 'jspsych-p5-vertical-slider',
+                parameters: {
+                    prompt: {
+                        type: jsPsych.plugins.parameterType.HTML_STRING,
+                        pretty_name: 'Prompt',
+                        default: null,
+                        description: 'The prompt to be displayed above the slider'
+                    },
+                    require_movement: {
+                        type: jsPsych.plugins.parameterType.BOOL,
+                        pretty_name: 'Require movement',
+                        default: true,
+                        description: 'If true, the user must move the slider before continuing.'
+                    },
+                    canvas_height: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Canvas height',
+                        default: 600,
+                        description: 'The height of the canvas element in pixels.'
+                    },
+                    dial_size: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Dial size',
+                        default: 20,
+                        description: 'The diameter of the slider dial in pixels.'
+                    },
+                    label_size: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Label size',
+                        default: 20,
+                        description: 'The font size of the labels in pixels.'
+                    },
+                    line_thickness: {
+                        type: jsPsych.plugins.parameterType.INT,
+                        pretty_name: 'Line thickness',
+                        default: 4,
+                        description: 'The thickness of the scale line in pixels.'
+                    }
+                }
+            };
+
+            plugin.trial = function (display_element, trial) {
+                var trial_data = {};
+                let startTime;
+
+
+
+                let response_given = false;
+
+                var html = `
+                    <div id="p5-slider-container" style="width: 100%; text-align: center;">
+                        ${trial.prompt ? `<p class="text-2xl font-semibold mb-8">${trial.prompt}</p>` : ''}
+                        <div id="p5-canvas-holder" style="position: relative; width: 80%; height: ${trial.canvas_height}px; display: flex; justify-content: center; cursor: pointer;"></div>
+                    </div>
+                `;
+                display_element.innerHTML = html;
+
+
+                function screen_coordinates_to_universal_coordinates(x, y, scale_x, top_y, bottom_y) {
+                    const universalX = (x - (scale_x - (bottom_y - top_y) / 2)) / (bottom_y - top_y);
+
+
+                    const universalY = (y - top_y) / (bottom_y - top_y)
+
+
+                    return { x: universalX, y: universalY };
+                }
+
+
+
+                const sketch = (p) => {
+                    let canvasWidth, canvasHeight;
+                    let top_y, bottom_y, scale_x;
+                    let dial_y;
+                    let hasBeenMoved = false;
+                    let mouse_log = { x: [], y: [], t: [], universal_x: [], universal_y: [] };
+
+                    p.setup = () => {
+                        const canvasHolder = document.getElementById('p5-canvas-holder');
+                        const contentWrapper = document.querySelector('.jspsych-content-wrapper');
+
+                        if (!canvasHolder || !contentWrapper) {
+                            jsPsych.finishTrial({ error: "slider display failed" });
+                            return;
+                        }
+
+                        canvasWidth = p.windowWidth * 0.8;
+                        canvasHeight = canvasHolder.clientHeight;
+                        top_y = canvasHeight / 4;
+                        bottom_y = canvasHeight * 3 / 4;
+                        scale_x = canvasWidth / 2;
+                        dial_y = (top_y + bottom_y) / 2;
+
+                        p.createCanvas(canvasWidth, canvasHeight).parent('p5-canvas-holder');
+
+
+                        p.textFont('Inter');
+
+
+                        startTime = performance.now();
+                        isSetupComplete = true;
+                    };
+
+
+
+
+                    p.mouseMoved = function () {
+
+                        if (!isSetupComplete) {
+                            return;
+                        }
+
+                        const universal_coordinates = screen_coordinates_to_universal_coordinates(p.mouseX, p.mouseY, scale_x, top_y, bottom_y);
+
+                        mouse_log.x.push(p.mouseX);
+                        mouse_log.y.push(p.mouseY);
+                        mouse_log.universal_x.push(universal_coordinates.x);
+                        mouse_log.universal_y.push(universal_coordinates.y);
+                        mouse_log.t.push(Math.round(performance.now() - startTime));
+
+
+                    };
+
+                    p.draw = () => {
+                        p.background(241, 245, 249);
+                        let isHovering = p.mouseX > 0 && p.mouseX < canvasWidth && p.mouseY > 0 && p.mouseY < canvasHeight;
+
+                        if (isHovering) {
+                            dial_y = p.max(p.min(p.mouseY, bottom_y), top_y);
+                            if (!hasBeenMoved) {
+                                hasBeenMoved = true;
+                            }
+                        }
+
+
+
+                        p.push();
+                        p.stroke(0);
+                        p.strokeWeight(trial.line_thickness);
+                        p.line(scale_x, top_y, scale_x, bottom_y);
+                        p.pop();
+
+                        p.push();
+                        p.textAlign(p.LEFT, p.CENTER);
+                        p.textSize(trial.label_size);
+                        p.noStroke();
+                        p.fill(51, 65, 85);
+                        p.text('Fully confident', scale_x + 30, top_y);
+                        p.text('Fully guessing', scale_x + 30, bottom_y);
+                        p.pop();
+
+                        if (hasBeenMoved) {
+                            p.push();
+                            p.stroke(0);
+                            p.strokeWeight(0.5);
+                            p.fill(255);
+                            p.ellipse(scale_x, dial_y, trial.dial_size);
+                            p.pop();
+                        }
+                    };
+
+                    p.mousePressed = () => {
+                        if (response_given) { return; }
+                        response_given = true;
+
+                        let isHovering = p.mouseX > 0 && p.mouseX < canvasWidth && p.mouseY > 0 && p.mouseY < canvasHeight;
+
+                        if (isHovering) {
+
+                            if (trial.require_movement && !hasBeenMoved) {
+                                response_given = false;
+                                return;
+                            }
+
+                            p.noLoop();
+
+                            const endTime = performance.now();
+                            const rt = endTime - startTime;
+                            const confidence_rating = p.map(dial_y, bottom_y, top_y, 0, 100);
+
+
+                            trial_data = {
+                                confidence: Math.round(confidence_rating),
+                                rt: rt,
+                                confidence_rt: rt,
+                                mouse_log: mouse_log,
+                                click_position_raw: [p.mouseX, p.mouseY],
+                                click_position_universal: screen_coordinates_to_universal_coordinates(p.mouseX, p.mouseY, scale_x, top_y, bottom_y)
+                            };
+                            if (trial_data.mouse_log) {
+                                trial_data.mouse_x = trial_data.mouse_log.x.join(';');
+                                trial_data.mouse_y = trial_data.mouse_log.y.join(';');
+                                trial_data.mouse_t = trial_data.mouse_log.t.join(';');
+                                trial_data.mouse_universal_x = trial_data.mouse_log.universal_x.join(';');
+                                trial_data.mouse_universal_y = trial_data.mouse_log.universal_y.join(';');
+                                delete trial_data.mouse_log;
+                            }
+
+                            setTimeout(() => {
+                                p.remove();
+                                jsPsych.finishTrial(trial_data);
+                            }, 500);
+                        } else {
+                            response_given = false;
+                        }
+                    };
+                };
+
+                setTimeout(() => {
+                    new p5(sketch);
+                }, 10);
+            };
+
+            return plugin;
+        })();
+
+
+        async function makeTimeline() {
+            const urlParams = jatos.urlQueryParameters;
+
+
+
+
+            // saving data
+            jsPsych.data.addProperties(urlParams);
+
+            // --- SHARED CONFIGURATION ---
+            const NUM_NORMAL_TRIALS = 47;
+            const NUM_CATCH_TRIALS = 3;
+            const NUM_SHOW_TRIALS = NUM_NORMAL_TRIALS + NUM_CATCH_TRIALS; // -1 for the practice trial
+            const TOTAL_TRIALS_PART1 = NUM_NORMAL_TRIALS + NUM_CATCH_TRIALS;
+
+            let NOUNS = [];
+            let FRUITS = [];
+            let shuffledNouns = [];
+            let shuffledFruits = [];
+            let nounIndex = 0;
+            let fruitIndex = 0;
+            let showIndex = 0;
+            let cumulativeScore = 0;
+
+            let availableIndices = Array.from(Array(TOTAL_TRIALS_PART1).keys());
+
+            const catchTrialIndices = jsPsych.randomization.sampleWithoutReplacement(availableIndices, NUM_CATCH_TRIALS);
+            const showTrialIndices = jsPsych.randomization.sampleWithoutReplacement(availableIndices, NUM_SHOW_TRIALS);
+
+
+            
+
+
+
+            let leaderboardData = [];
+            let leaderboardObject = {}; // Initialize as an empty object
+
+            // determine conditions
+            const conditions = ['left', 'middle', 'right'];
+            const stoneposition = jsPsych.randomization.sampleWithoutReplacement(conditions, 1)[0];
+            const emeraldpositions = conditions.filter(pos => pos !== stoneposition);
+
+            
+
+
+            jsPsych.data.addProperties({
+                stoneposition: stoneposition,
+                emeraldpositions: emeraldpositions
+            });
+
+            try {
+
+                if (jatos.batchSession.find('/Bonuses')) {
+                    fetchedData = jatos.batchSession.get("Bonuses")
+                    if (fetchedData && typeof fetchedData === 'object') {
+                        leaderboardObject = fetchedData;
+                    }
+
+                    Object.entries(leaderboardObject).forEach(([playerId, score]) => {
+                        leaderboardData.push({ playerId: playerId, score: score });
+                    });
+                } else {
+                    console.log('no batch data')
+                }
+
+
+            } catch (error) {
+                console.error("Could not process leaderboard data; initializing as empty:", error);
+                leaderboardData = [];
+                leaderboardObject = {};
+            }
+
+            try {
+                const response = await fetch('assets/nouns.json');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const wordData = await response.json();
+                NOUNS = wordData.nouns;
+                FRUITS = wordData.fruits;
+
+                shuffledNouns = jsPsych.randomization.shuffle([...NOUNS]);
+                shuffledFruits = jsPsych.randomization.shuffle([...FRUITS]);
+
+            } catch (error) {
+                console.error("Error loading nouns.json:", error);
+                document.getElementById('jspsych-target').innerHTML = `<div class="text-center bg-white p-8 rounded-lg shadow-lg"><h1 class="text-2xl font-bold text-red-600 mb-4">Error loading assets</h1><p class="text-slate-600">Could not load word list.</p></div>`;
+                return;
+            }
+
+            const timeline = [];
+
+
+            const enter_fullscreen = {
+                type: 'fullscreen',
+                fullscreen_mode: true
+            };
+            timeline.push(enter_fullscreen);
+
+            const preload = {
+                type: 'preload',
+                images: ['assets/ruby.png', 'assets/emerald.png', 'assets/stone.png'],
+            };
+            timeline.push(preload);
+
+            const currentSize = Object.keys(leaderboardObject).length;
+            const newPlayerId = `Player ${jatos.workerId}`;
+
+
+            const welcome_part1 = {
+                type: 'html-button-response',
+                stimulus: `
+                <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                    <h1 class="text-3xl md:text-4xl font-bold mb-4">Welcome to the three-box game!</h1>
+                    <p class="text-slate-600 mb-6 max-w-2xl mx-auto">This game has two parts, and should take no more than 15 minutes to complete. The top performing 30% of players will get an additional $1 bonus payment.</p>
+                </div>`,
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Continue</button>'],
+                button_html: '%choice%',
+            };
+
+            const instructions_part1 = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                    <p class="text-slate-600 mb-6 max-w-2xl mx-auto">In each round of Part 1 we will show you three boxes side by side. Exactly one box will contain gems, and the rest will contain worthless stones. Your goal is to collect as many <span class="font-semibold">gems</span> as you can. But you can only choose one box in each round.</p>
+                    <p class="text-slate-600 mb-8 max-w-2xl mx-auto">Each box will have a label on it, made up of a word and a number. <b>The number indicates the number of gems or stones inside the box.</b> So, for example, a box with a label “Shampoo (3)” will have three stones or three gems in it.</p>
+                </div>`,
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                    <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Each gem is worth 1 point and stones will give you no points. If the number of points you have at the end of the game is within the top 30% of all players, you will get a $1 bonus.</p>
+                    <p class="text-slate-600 mb-8 max-w-2xl mx-auto">To help you, here is a piece of useful information: whenever the label is a fruit word, like “apples”, the box will always contain gems.</p>
+                </div>`,
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                    <p class="text-slate-600 mb-8 max-w-2xl mx-auto">There will be ${TOTAL_TRIALS_PART1} rounds in Part 1. </p>
+                </div>`
+                ],
+                show_clickable_nav: true
+            };
+
+            let comprehension_failures_part1 = 0;
+
+            const comprehension_check_part1_1 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                        prompt: "My task is to:",
+                        options: jsPsych.randomization.shuffle([
+                            'collect as many gems as possible',
+                            'collect as many things (stones and gems) as possible',
+                            'always choose the box with the longest label',
+                            'collect as many stones as possible'
+                        ]),
+                        required: true,
+                        name: 'comprehension_check_part1',
+                    }
+                ],
+                on_finish: function (data) {
+                    const correct_answer = 'collect as many gems as possible';
+                    const is_correct = data.response.comprehension_check_part1 === correct_answer;
+
+                    // saving data 
+                    data.correct_comprehension = is_correct;
+                }
+            };
+
+            const comprehension_check_part1_2 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                        prompt: "Which word category will always contain gems? ",
+                        options: jsPsych.randomization.shuffle([
+                            'Animals',
+                            'Vegetables',
+                            'Fruits',
+                            'Stationery'
+                        ]),
+                        required: true,
+                        name: 'comprehension_check_part1_2',
+                    }
+                ],
+                on_finish: function (data) {
+                    const correct_answer = 'Fruits';
+                    const is_correct = data.response.comprehension_check_part1_2 === correct_answer;
+                    // saving data
+                    data.correct_comprehension = is_correct;
+                }
+            };
+
+            const feedback_node = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                    <p class="text-red-600">That wasn't quite right. Please review the instructions carefully and try again.</p>
+                </div>`
+                ],
+                show_clickable_nav: true,
+                button_label_next: "Try Again"
+            };
+
+            const conditional_feedback = {
+                timeline: [feedback_node],
+                conditional_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(2).values();
+                    return !check_data.every(trial => trial.correct_comprehension);
+                }
+            };
+
+            const comprehension_loop_part1 = {
+                timeline: [instructions_part1, comprehension_check_part1_1, comprehension_check_part1_2, conditional_feedback],
+                loop_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(2).values();
+                    const all_correct = check_data.every(trial => trial.correct_comprehension);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part1++;
+                        if (comprehension_failures_part1 < 2) {
+                            return true;
+                        } else {
+                            jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=C16RY7AS", false, "failed attention check");
+                            return false;
+                        }
+                    }
+                },
+                on_finish: function () {
+                    if (comprehension_failures_part1 >= 2) {
+                        jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=C16RY7AS", false, "failed attention check");
+                    }
+                }
+            };
+
+            const welcome_part2 = {
+                type: 'html-button-response',
+                stimulus: function () {
+                    return `
+                    <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Well done, ${newPlayerId}. In Part 1, you collected ${cumulativeScore} gems. Each gem is worth one point, so you have <b>${cumulativeScore}</b> points in total. But in Part 2, you can earn more points, so pay close attention.</p>
+                    </div>`},
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Continue</button>'],
+                button_html: '%choice%',
+            };
+
+            let comprehension_failures_part2_1 = 0;
+            let comprehension_failures_part2_2 = 0;
+            let comprehension_failures_part2_3 = 0;
+            let comprehension_failures_part2_4 = 0;
+
+
+            const instructions_part2_1 = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">At the end of part 1, we asked you whether you noticed a regularity in the location of the gems.</p>
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">This is because there was a hidden rule in the location of the gems in part 1. The rule was that gems would <b>never appear in the ${stoneposition} box</b>. In other words, gems only appeared in the ${emeraldpositions[0]} or ${emeraldpositions[1]} boxes.</p>
+                        </div>`
+                ],
+                show_clickable_nav: true
+
+            }
+
+
+            const comprehension_check_part2_1 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                        prompt: "Which box never contained gems?",
+                        options: jsPsych.randomization.shuffle([
+                            `The ${stoneposition} box`,
+                            `The ${emeraldpositions[0]} box`,
+                            `The ${emeraldpositions[1]} box`,
+                        ]),
+                        required: true,
+                        name: 'comprehension_check_part2_1',
+                    }
+                ],
+                on_finish: function (data) {
+                    const correct_answer = `The ${stoneposition} box`;
+                    const is_correct = data.response.comprehension_check_part2_1 === correct_answer;
+                    //saving data
+                    data.correct_comprehension = is_correct;
+                    data.comprehension_check_part2_1 = data.response.comprehension_check_part2_1
+                }
+            }
+
+            const conditional_feedback_part2_1 = {
+                timeline: [feedback_node],
+                conditional_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    return !check_data.every(trial => trial.correct_comprehension);
+                }
+            };
+
+            const comprehension_loop_part2_1 = {
+                timeline: [
+                    instructions_part2_1,
+                    comprehension_check_part2_1,
+                    conditional_feedback_part2_1
+                ],
+                loop_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    const all_correct = check_data.every(trial => trial.correct_comprehension);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part2_1++;
+                        if (comprehension_failures_part2_1 < 2) {
+                            return true;
+                        } else {
+                            jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=C16RY7AS", false, "failed attention check");
+                            return false;
+                        }
+                        return true;
+                    }
+                }
+            };
+
+            const instructions_part2_2 = {
+                type: 'instructions',
+                pages: [`<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">In Part 2, you will see exactly the <b>same boxes</b> as Part 1 in the <b>same order</b>.</p>
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">This means that the first round in Part 2 will have exactly the same boxes as the first round in Part 1, and so on.</p>
+                        </div>`,
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                            <p class="text-slate-600 mb-6 max-w-2xl mx-auto"><b>But here, your task is different. </b>This time, we don't want you to always choose the box with the gems. <b>Instead, we want you to choose the same box you chose in Part 1</b>. It doesn't matter if it had gems in it or not.</p>
+                        </div>`,
+                ],
+                show_clickable_nav: true
+            }
+
+            const comprehension_check_part2_2 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                        prompt: "My task in Part 2 is to: ",
+                        options: jsPsych.randomization.shuffle([
+                            'always choose a box that contains stones',
+                            'always choose the box with the largest number',
+                            'always choose the box that contains gems',
+                            'always choose the same box that I chose in Part 1'
+                        ]),
+                        required: true,
+                        name: 'comprehension_check_part2_2',
+                    }
+                ],
+                on_finish: function (data) {
+                    const correct_answer = 'always choose the same box that I chose in Part 1';
+                    const is_correct = data.response.comprehension_check_part2_2 === correct_answer;
+                    //saving data
+                    data.correct_comprehension = is_correct;
+                    data.comprehension_check_part2_2 = data.response.comprehension_check_part2_2
+                }
+            };
+
+            const conditional_feedback_part2_2 = {
+                timeline: [feedback_node],
+                conditional_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    return !check_data.every(trial => trial.correct_comprehension);
+                }
+            };
+
+            const comprehension_loop_part2_2 = {
+                timeline: [
+                    instructions_part2_2,
+                    comprehension_check_part2_2,
+                    conditional_feedback_part2_2
+                ],
+                loop_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    const all_correct = check_data.every(trial => trial.correct_comprehension);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part2_2++;
+                        if (comprehension_failures_part2_2 < 2) {
+                            return true;
+                        } else {
+                            jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=C16RY7AS", false, "failed attention check");
+                            return false;
+                        }
+                        return true;
+                    }
+                }
+            };
+
+            const instructions_part2_3 = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">After you choose a box, you will use a scale to rate your <b>confidence</b> that your memory is accurate.</p>
+                        </div>`],
+                show_clickable_nav: true
+            };
+
+
+            const comprehension_check_part2_3 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                        prompt: `If in Part 1 I definitely remember that I chose the box labelled “glass (3)” but the gems were hidden <br> in the box labelled “table (2)”, this time I should choose:`,
+                        options: jsPsych.randomization.shuffle([
+                            'the box labelled “glass (3)” and rate my confidence as high',
+                            'the box labelled “table (2)” and rate my confidence as high',
+                            'the box labelled “glass (3)” and rate my confidence as low',
+                            'the box labelled “table (2)” and rate my confidence as low',
+
+                        ]),
+                        required: true,
+                        name: 'comprehension_check_part2_3',
+                    }
+                ],
+                on_finish: function (data) {
+                    const correct_answer = 'the box labelled “glass (3)” and rate my confidence as high';
+                    const is_correct = data.response.comprehension_check_part2_3 === correct_answer;
+                    //saving data
+                    data.correct_comprehension = is_correct;
+                    data.comprehension_check_part2_3 = data.response.comprehension_check_part2_3
+                }
+            };
+
+            const conditional_feedback_part2_3 = {
+                timeline: [feedback_node],
+                conditional_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    return !check_data.every(trial => trial.correct_comprehension);
+                }
+            };
+
+            const comprehension_loop_part2_3 = {
+                timeline: [
+                    instructions_part2_3,
+                    comprehension_check_part2_3,
+                    conditional_feedback_part2_3
+                ],
+                loop_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    const all_correct = check_data.every(trial => trial.correct_comprehension);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part2_3++;
+                        if (comprehension_failures_part2_3 < 2) {
+                            return true;
+                        } else {
+                            jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=C16RY7AS", false, "failed attention check");
+                            return false;
+                        }
+                        return true;
+                    }
+                }
+            };
+
+            const instructions_part2_4 = {
+                type: 'instructions',
+                pages: [`<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">In each round, we will show you which box contained gems and which contained stones. A  <span style='color: #22C55E;font-weight: bold'>green</span> outline of the box indicates that it contained gems and a <span style='color: black;font-weight: bold'>black</span>  outline indicates stones.</p>
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Remember, your task is to choose the same box you chose in Part 1, regardless of whether it contained gems or not.</p>
+                        
+                    </div>`],
+                show_clickable_nav: true
+            }
+
+            const comprehension_check_part2_4 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                        prompt: `A box with a <span style='color: #22C55E;font-weight: bold'>green</span> outline indicates that:`,
+                        options: jsPsych.randomization.shuffle([
+                            'it contained gems in part 1',
+                            'it did not contain gems in part 1'
+                        ]),
+                        required: true,
+                        name: 'comprehension_check_part2_4',
+                    }
+
+                ],
+                on_finish: function (data) {
+                    const correct_answer = 'it contained gems in part 1';
+                    const is_correct = data.response.comprehension_check_part2_4 === correct_answer;
+                    //saving data
+                    data.correct_comprehension = is_correct;
+                    data.comprehension_check_part2_4 = data.response.comprehension_check_part2_4
+                }
+            }
+
+            const conditional_feedback_part2_4 = {
+                timeline: [feedback_node],
+                conditional_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    return !check_data.every(trial => trial.correct_comprehension);
+                }
+            };
+
+            const comprehension_loop_part2_4 = {
+                timeline: [
+                    instructions_part2_4,
+                    comprehension_check_part2_4,
+                    conditional_feedback_part2_4
+                ],
+                loop_function: function () {
+                    const check_data = jsPsych.data.get().filter({ trial_type: 'survey-multi-choice' }).last(1).values();
+                    const all_correct = check_data.every(trial => trial.correct_comprehension);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part2_4++;
+                        if (comprehension_failures_part2_4 < 2) {
+                            return true;
+                        } else {
+                            jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=C16RY7AS", false, "failed attention check");
+                            return false;
+                        }
+                        return true;
+                    }
+                }
+            };
+
+
+
+
+
+
+            const practice_instructions = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Let's start with the first round. In this round, you will recall your decision from round number 1 in Part 1.</p>
+                        </div>`,
+                ],
+                show_clickable_nav: true
+            };
+
+
+
+            var rule_check = {
+                type: 'survey-html-form',
+                preamble: `
+                    <p class="jspsych-survey-html-form-prompt" style="margin-bottom: 10px; font-size: 1.125rem; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                        Have you noticed any regularity in the location of the gems? 
+                        <br>If yes, what was it? 
+                    </p>
+                `,
+                html: `
+                    <textarea 
+                        name="rule_check" 
+                        rows="8" 
+                        cols="60" 
+                        placeholder="if not, type na" 
+                        style="font-size: 14px; border: 1px solid #ccc; padding: 5px; border-radius: 4px;"
+                        required></textarea>
+                `,
+                on_finish: function (data) {
+
+                    if (data.response) {
+                        data.rule_check = data.response.rule_check;
+                    } else {
+                        data.rule_check = "NO_RESPONSE";
+                    }
+
+                    // saving data
+                    data.comprehension_failures_part2_1 = comprehension_failures_part2_1;
+                    data.comprehension_failures_part2_2 = comprehension_failures_part2_2;
+                    data.comprehension_failures_part2_3 = comprehension_failures_part2_3;
+                    data.comprehension_failures_part2_4 = comprehension_failures_part2_4
+                }
+            };
+
+            var worker_comments = {
+                type: 'survey-html-form',
+                html: `
+                    <p class="jspsych-survey-html-form-prompt" style="margin-bottom: 10px;">
+                        That's it! We would appreciate if you could share 
+                        any thoughts you had about the experiment, or anything we should 
+                        take into account when analyzing your data.
+                    </p>
+                    <textarea 
+                        name="worker_comments" 
+                        rows="8" 
+                        cols="60" 
+                        placeholder="your comments here" 
+                        style="font-size: 14px; border: 1px solid #ccc; padding: 5px; border-radius: 4px;"
+                        >
+                    </textarea>
+                `,
+                on_finish: function (data) {
+                    // saving data
+                    if (data.response) {
+                        data.worker_comments = data.response.worker_comments;
+                    } else {
+                        data.worker_comments = "NO_RESPONSE";
+                    }
+                }
+            };
+
+            var number_correct_part1_slider = {
+                type: 'html-slider-response',
+                stimulus: `
+                    <p class="jspsych-survey-html-form-prompt" style="margin-bottom: 10px; font-size: 1.125rem; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                        In <b>Part 1</b>, there were ${TOTAL_TRIALS_PART1} rounds. Out of ${TOTAL_TRIALS_PART1} rounds, in how many rounds do you think you chose the box with gems? 
+                    </p>
+
+                    <p style="text-align: center; font-size: 1.2rem; font-weight: bold; margin-top: 10px;">
+                        <span id="slider-value-display"></span>/${TOTAL_TRIALS_PART1} 
+                    </p>
+                `,
+
+                prompt: '',
+                min: 0,
+                max: TOTAL_TRIALS_PART1,
+                step: 1,
+                labels: ['0', `${TOTAL_TRIALS_PART1 / 2}`, `${TOTAL_TRIALS_PART1}`],
+                slider_width: 500,
+                required: true,
+                slider_start: TOTAL_TRIALS_PART1 / 2,
+                require_movement: true,
+
+                on_load: function () {
+
+                    var slider = document.getElementById('jspsych-html-slider-response-response');
+                    var display = document.getElementById('slider-value-display');
+
+                    if (slider && display) {
+                        display.textContent = slider.value;
+                        slider.addEventListener('input', function () {
+                            display.textContent = slider.value;
+                        });
+                    }
+                },
+
+                on_finish: function (data) {
+                    if (data.response !== null) {
+                        number_correct_part1_slider = data.response;
+                    } else {
+                        number_correct_part1_slider = "NO_RESPONSE";
+                    }
+                    jsPsych.data.addProperties({
+                        number_correct_part1_slider: number_correct_part1_slider
+                    });
+                }
+            };
+
+            const next_screen = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                   <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Click Next to move on to the next question.</p>
+                </div>`
+                ],
+                show_clickable_nav: true,
+                button_label_next: "Next"
+            };
+
+            var number_correct_part2_slider = {
+                type: 'html-slider-response',
+                stimulus: `
+                    <p class="jspsych-survey-html-form-prompt" style="margin-bottom: 10px; font-size: 1.125rem; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                        In <b>Part 2</b>, there were ${TOTAL_TRIALS_PART1} rounds. Out of ${TOTAL_TRIALS_PART1} rounds, in how many rounds do you think you replicated your choice in Part 1? 
+                    </p>
+
+                    <p style="text-align: center; font-size: 1.2rem; font-weight: bold; margin-top: 10px;">
+                        <span id="slider-value-display"></span>/${TOTAL_TRIALS_PART1} 
+                    </p>
+                `,
+
+                prompt: '',
+                min: 0,
+                max: TOTAL_TRIALS_PART1,
+                step: 1,
+                labels: ['0', `${TOTAL_TRIALS_PART1 / 2}`, `${TOTAL_TRIALS_PART1}`],
+                slider_width: 500,
+                required: true,
+                slider_start: TOTAL_TRIALS_PART1 / 2,
+                require_movement: true,
+
+                on_load: function () {
+
+                    var slider = document.getElementById('jspsych-html-slider-response-response');
+
+                    var display = document.getElementById('slider-value-display');
+
+                    if (slider && display) {
+
+                        display.textContent = slider.value;
+
+
+                        slider.addEventListener('input', function () {
+                            display.textContent = slider.value;
+                        });
+                    }
+                },
+
+                on_finish: function (data) {
+                    if (data.response !== null) {
+                        number_correct_part2_slider = data.response;
+                    } else {
+                        number_correct_part2_slider = "NO_RESPONSE";
+                    }
+                    jsPsych.data.addProperties({
+                        number_correct_part2_slider: number_correct_part2_slider
+                    });
+                }
+            };
+
+
+
+
+
+
+
+
+
+            const leaderboard_screen = {
+                type: 'html-button-response',
+                stimulus: function () {
+                    let leaderboardHtml = `
+                    <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <h1 class="text-2xl md:text-3xl font-semibold mb-4 text-slate-700">Here are the points that our best participants earned:</h1>`;
+
+                    if (leaderboardData.length === 0) {
+                        leaderboardHtml += `<p class="text-slate-500 mt-8">You're one of the first to play. Be the first to set a high score!</p>`;
+                    } else {
+                        const topScores = leaderboardData.sort((a, b) => b.score - a.score).slice(0, 10);
+
+                        let tableRows = '';
+                        topScores.forEach((entry, index) => {
+                            tableRows += `
+                            <tr>
+                                <td class="font-semibold text-slate-500">${index + 1}</td>
+                                <td>${entry.playerId}</td>
+                                <td class="font-semibold">${entry.score}</td>
+                            </tr>`;
+                        });
+
+                        leaderboardHtml += `
+                        <table class="leaderboard-table">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Participant</th>
+                                    <th>Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>`;
+                    }
+                    leaderboardHtml += `</div>`;
+                    return leaderboardHtml;
+                },
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors mt-6">Begin</button>'],
+                button_html: '%choice%',
+
+                on_finish: function () {
+                    showScoreDisplay();
+
+                },
+
+                data: function () {
+                    return {
+                        // saving data
+                        comprehension_failures_part1: comprehension_failures_part1
+                    };
+                }
+
+            };
+
+            const end_screen = {
+                type: 'html-keyboard-response',
+                stimulus: function () {
+                    let leaderboardHtml = '';
+                    if (leaderboardData.length === 0) {
+                        leaderboardHtml += `<p class="text-slate-500 mt-4">Be the first to set a high score!</p>`;
+                    } else {
+                        const topScores = leaderboardData.sort((a, b) => b.score - a.score).slice(0, 10);
+                        let tableRows = '';
+                        topScores.forEach((entry, index) => {
+                            tableRows += `
+                                <tr>
+                                    <td class="font-semibold text-slate-500">${index + 1}</td>
+                                    <td>${entry.playerId}</td>
+                                    <td class="font-semibold">${entry.score}</td>
+                                </tr>`;
+                        });
+                        leaderboardHtml += `
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Participant</th>
+                                        <th>Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows}
+                                </tbody>
+                            </table>`;
+                    }
+
+                    return `
+                        <div class="text-center bg-white p-8 rounded-lg shadow-lg max-w-3xl mx-auto">
+                            <h1 class="text-3xl md:text-4xl font-bold mb-4">Experiment Complete!</h1>
+                            <p class="text-slate-600 mb-6 text-xl">Thank you for your participation.</p>
+                            
+                            <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-md my-6">
+                                <p class="font-bold text-lg">Your Final Score</p>
+                                <p class="text-5xl font-bold">${cumulativeScore}</p>
+                            </div>
+
+                            <button id="end-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors mt-2 mb-8">Click here to end the experiment</button>
+
+                            <div class="bg-green-100 border-l-4 border-green-500 text-green-800 p-4 rounded-md my-6">
+                                <p class="font-bold text-lg">Bonus Payment</p>
+                                <p class="mt-1">If your score is in the top 30% of our full sample at the end of data collection, you will receive an additional $1 bonus payment.</p>
+                            </div>
+
+                            <h2 class="text-2xl font-semibold mt-8 mb-2 text-slate-700">Current High Scores</h2>
+                            ${leaderboardHtml}
+                        </div>`;
+                },
+                choices: jsPsych.NO_KEYS,
+                on_load: function () {
+                    hideScoreDisplay();
+                    try {
+                        jatos.batchSession.add(`/Bonuses/${newPlayerId}`, cumulativeScore)
+                            .catch(() => console.error("Batch Session synchronization failed"));
+                        jsPsych.data.addProperties({ playerId: newPlayerId })
+                    } catch (error) {
+                        console.error("Failed to save score to leaderboard:", error);
+                    }
+                    document.getElementById('end-btn').addEventListener('click', () => {
+                        jsPsych.finishTrial();
+                    });
+                },
+                on_finish: function () {
+                    const all_data_collection = jsPsych.data.get();
+
+                    all_data_collection.addToAll({
+                        comprehension_failures_part1: comprehension_failures_part1,
+                        comprehension_failures_part2_1: comprehension_failures_part2_1,
+                        comprehension_failures_part2_2: comprehension_failures_part2_2,
+                        comprehension_failures_part2_3: comprehension_failures_part2_3,
+                        comprehension_failures_part2_4: comprehension_failures_part2_4,
+                    });
+
+
+                    const all_results = all_data_collection.csv();
+                    jatos.submitResultData(all_results, jatos.endStudy);
+                }
+            };
+
+            const score_update_screen = {
+                type: 'html-button-response',
+                stimulus: function () {
+
+                    const last_trial_data = jsPsych.data.get().filter({ type: 'testmouse' }).last(1).values()[0];
+
+
+                    const score_to_display = last_trial_data.cumulative_score;
+                    return `
+                                <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                                    <h2 class="text-2xl md:text-3xl font-semibold mb-4 text-slate-700">Progress Update</h2>
+                                    <p class="text-slate-600 text-xl mb-6">Your current score is:</p>
+                                    <p class="text-5xl font-bold text-blue-600 mb-8">${score_to_display}</p>
+                                </div>
+                            `;
+                },
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Continue</button>'],
+                button_html: '%choice%',
+            };
+
+            timeline.push(welcome_part1, comprehension_loop_part1);
+
+            
+
+
+            let numbers = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                let currentTrial = [
+                    getRandomInt(5) + 1,
+                    getRandomInt(5) + 1,
+                    getRandomInt(5) + 1
+                ];
+                numbers.push(currentTrial);
+            }
+
+            let nounTriplets = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                const startIndex = i * 3;
+                let currentTriplet = shuffledNouns.slice(startIndex, startIndex + 3);
+                nounTriplets.push(currentTriplet);
+            };
+
+            let possibleRewards;
+            if (stoneposition === 'right') {
+                possibleRewards = ['middle', 'left'];
+            } else if (stoneposition === 'middle') {
+                possibleRewards = ['right', 'left'];
+            } else {
+                possibleRewards = ['middle', 'right'];
+            }
+
+            let rewardArray = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                let chosenReward = jsPsych.randomization.sampleWithoutReplacement(possibleRewards, 1)[0];
+                rewardArray.push(chosenReward);
+            }
+
+            let fruitArray = jsPsych.randomization.sampleWithoutReplacement(shuffledFruits, NUM_CATCH_TRIALS);
+
+
+            let allTrials = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                allTrials.push({
+                    numbers: numbers[i],
+                    stimuli: nounTriplets[i],
+                    reward_location: rewardArray[i],
+                    trialtype1: 'normal',
+                    trialtype2: 'show', // All trials are show trials
+                });
+            };
+
+            const locationToIndex = {
+                'left': 0,
+                'middle': 1,
+                'right': 2
+            };
+
+            catchTrialIndices.forEach((trialIndex, fruitIndex) => {
+                let trialToModify = allTrials[trialIndex];
+                let nounIndexToReplace = locationToIndex[trialToModify.reward_location];
+                let fruit = fruitArray[fruitIndex];
+
+                trialToModify.stimuli[nounIndexToReplace] = fruit;
+                trialToModify.trialtype1 = 'catch';
+            });
+
+
+
+            showTrialIndices.forEach(trialIndex => {
+                let trialToModify = allTrials[trialIndex];
+                trialToModify.trialtype2 = 'show'; // Set the trial type to 'show'
+            });
+
+            // --- Trial Loop ---
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+
+                const trial_config = allTrials[i];
+                const overallTrialIndex = i + 2;
+
+
+
+                const trial_part1 = {
+                    type: 'testmouse',
+                    phase: 'part1',
+                    left_word: trial_config.stimuli[0],
+                    middle_word: trial_config.stimuli[1],
+                    right_word: trial_config.stimuli[2],
+                    left_number: trial_config.numbers[0],
+                    middle_number: trial_config.numbers[1],
+                    right_number: trial_config.numbers[2],
+                    is_show_trial: trial_config.trialtype2 === 'show',
+                    is_catch_trial: trial_config.trialtype1 === 'catch',
+                    correct_choice_position: trial_config.reward_location,
+                    emeraldposition: emeraldpositions,
+                    stoneposition: stoneposition,
+                    progress: (i + 1) / TOTAL_TRIALS_PART1,
+                    trial_num: i + 1,
+                    current_score: function () {
+                        return cumulativeScore;
+                    },
+                    on_finish: function (data) {
+                        cumulativeScore = data.cumulative_score;
+
+
+
+                        if (data.mouse_log) {
+                            data.mouse_x = data.mouse_log.x.join(';');
+                            data.mouse_y = data.mouse_log.y.join(';');
+                            data.mouse_t = data.mouse_log.t.join(';');
+                            data.mouse_universal_x = data.mouse_log.universal_x.join(';');
+                            data.mouse_universal_y = data.mouse_log.universal_y.join(';');
+                            delete mouse_log
+                        }
+                    }
+                };
+                timeline.push(trial_part1);
+            }
+
+            timeline.push(rule_check);
+
+            const transition_screen = {
+                type: 'html-keyboard-response',
+                stimulus: `<div class="text-center bg-white p-8 rounded-lg shadow-lg"><h1 class="text-3xl font-bold mb-4">Part 1 Complete!</h1><p class="text-slate-600">Please wait for Part 2.</p></div>`,
+                choices: jsPsych.NO_KEYS,
+                trial_duration: 2500,
+                on_start: function () {
+                    hideScoreDisplay();
+                },
+                on_finish: function () {
+                    let part2_timeline = [];
+
+
+                    part2_timeline.push(
+                        welcome_part2,
+                        comprehension_loop_part2_1,
+                        comprehension_loop_part2_2,
+                        comprehension_loop_part2_3,
+                        comprehension_loop_part2_4,
+                        practice_instructions
+                    );
+
+                    const update_score_trial = {
+                        type: 'call-function',
+                        func: function () {
+                            const last_trial_data = jsPsych.data.get().filter({ type: 'testmouse' }).last(1).values()[0];
+
+
+                            if (last_trial_data && last_trial_data.phase === 'part2') {
+                                cumulativeScore = last_trial_data.cumulative_score;
+
+                            }
+                        }
+                    };
+
+                    const part1_trial1 = jsPsych.data.get().filter({ phase: 'part1', trial_num: 1 }).values()[0];
+
+
+                    const trial_part2_practice1 = {
+                        type: 'testmouse',
+                        phase: 'part2',
+                        type: 'testmouse',
+                        phase: 'part2',
+                        left_word: part1_trial1.left_word,
+                        middle_word: part1_trial1.middle_word,
+                        right_word: part1_trial1.right_word,
+                        left_number: part1_trial1.left_number,
+                        middle_number: part1_trial1.middle_number,
+                        right_number: part1_trial1.right_number,
+                        part1_response_position: part1_trial1.response_position,
+                        is_show_trial: part1_trial1.is_show_trial,
+                        is_catch_trial: part1_trial1.is_catch_trial,
+                        correct_choice_position: part1_trial1.correct_choice_position,
+                        emeraldposition: emeraldpositions,
+                        stoneposition: stoneposition,
+                        progress: (0 + 1) / TOTAL_TRIALS_PART1,
+                        trial_num: part1_trial1.trial_num,
+                        current_score: function () {
+                            return cumulativeScore;
+                        },
+
+                    }
+
+                    const practice_confidence_slider_trial = {
+                        type: 'jspsych-p5-vertical-slider',
+                        prompt: function () {
+                            const practice_trial_data = jsPsych.data.get().filter({ phase: 'part2', trial_num: 1 }).values()[0];
+
+                            const chosen_position = practice_trial_data.response_position;
+                            const confidence_rating = practice_trial_data.confidence;
+
+                            let chosen_word = '';
+                            let chosen_number = '';
+                            if (chosen_position === 'left') {
+                                chosen_word = practice_trial_data.left_word;
+                                chosen_number = practice_trial_data.left_number;
+                            } else if (chosen_position === 'middle') {
+                                chosen_word = practice_trial_data.middle_word;
+                                chosen_number = practice_trial_data.middle_number;
+                            } else if (chosen_position === 'right') {
+                                chosen_word = practice_trial_data.right_word;
+                                chosen_number = practice_trial_data.right_number;
+                            }
+
+                            return `How confident are you that you chose the box labelled “<b>${chosen_word} (${chosen_number})</b>”?`
+                        },
+                        require_movement: true,
+                        post_trial_gap: 500,
+                        data: {
+                            trial_num: part1_trial1.trial_num
+                        },
+                        on_finish: function (data) {
+                            const all_data = jsPsych.data.get().values();
+
+                            const previous_trial_data = all_data[all_data.length - 2];
+
+                            if (previous_trial_data) {
+                                previous_trial_data.confidence = data.confidence;
+                                previous_trial_data.confidence_rt = data.rt;
+
+                            }
+                        }
+                    };
+
+                    const practice_feedback_1 = {
+                        type: 'instructions',
+                        pages: function () {
+                            const practice_trial_data = jsPsych.data.get().filter({ phase: 'part2', trial_num: 1 }).values()[0];
+
+                            const chosen_position = practice_trial_data.response_position;
+                            const confidence_rating = practice_trial_data.confidence;
+
+
+                            let chosen_word = '';
+                            if (chosen_position === 'left') {
+                                chosen_word = practice_trial_data.left_word;
+                            } else if (chosen_position === 'middle') {
+                                chosen_word = practice_trial_data.middle_word;
+                            } else if (chosen_position === 'right') {
+                                chosen_word = practice_trial_data.right_word;
+                            }
+
+
+
+                            const feedback_page = `
+                                <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                                    <h2 class="text-2xl font-bold mb-4">Round 1 Complete</h2>
+                                    <p class="text-slate-600 max-w-2xl mx-auto">
+                                        You recalled that in round number 1 you selected the box labelled “<b>${chosen_word}</b>”. Your confidence was <b>${confidence_rating}</b> on a scale of 0-100. If your memory is accurate, you will get 3 points for this round.
+                                    </p>
+                                </div>`;
+                            return [
+                                feedback_page
+                            ];
+
+                        },
+                        show_clickable_nav: true
+                    };
+
+
+
+                    const pre_part2_message = {
+                        type: 'instructions',
+                        pages: [
+                            `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                                <p class="text-slate-600 max-w-2xl mx-auto">Excellent, we are ready to go. Your task is to recall your guesses from Part 1. You will get feedback once in every 10 rounds. </p>
+                                <p class="text-slate-600 max-w-2xl mx-auto">
+                                        We will now proceed to do rounds 2 to ${TOTAL_TRIALS_PART1} in the same order as in Part 1.
+                                    </p>
+                            </div>`
+                        ],
+                        show_clickable_nav: true
+                    };
+
+
+
+
+                    part2_timeline.push(
+                        trial_part2_practice1,
+                        practice_confidence_slider_trial,
+                        practice_feedback_1,
+                        update_score_trial,
+                        pre_part2_message
+                    )
+
+
+
+                    const part1_trials = jsPsych.data.get().filter({ phase: 'part1' }).values();
+                    for (let i = 1; i < part1_trials.length; i++) {
+                        const part1_data = part1_trials[i];
+
+                        const trial_part2 = {
+                            type: 'testmouse',
+                            phase: 'part2',
+                            left_word: part1_data.left_word,
+                            middle_word: part1_data.middle_word,
+                            right_word: part1_data.right_word,
+                            left_number: part1_data.left_number,
+                            middle_number: part1_data.middle_number,
+                            right_number: part1_data.right_number,
+                            part1_response_position: part1_data.response_position,
+                            is_show_trial: part1_data.is_show_trial,
+                            is_catch_trial: part1_data.is_catch_trial,
+                            correct_choice_position: part1_data.correct_choice_position,
+                            emeraldposition: emeraldpositions,
+                            stoneposition: stoneposition,
+                            progress: (i + 1) / TOTAL_TRIALS_PART1,
+                            trial_num: part1_data.trial_num,
+                            current_score: function () {
+                                return cumulativeScore;
+                            },
+
+                        };
+
+                        const confidence_slider_trial = {
+                            type: 'jspsych-p5-vertical-slider',
+                            require_movement: true,
+                            post_trial_gap: 500,
+                            prompt: ' ',
+                            data: {
+                                trial_num: part1_data.trial_num
+                            },
+                            on_finish: function (data) {
+                                const all_data = jsPsych.data.get().values();
+
+                                const previous_trial_data = all_data[all_data.length - 2];
+
+                                if (previous_trial_data) {
+                                    previous_trial_data.confidence = data.confidence;
+                                    previous_trial_data.confidence_rt = data.rt;
+
+                                }
+                            }
+                        };
+
+
+                        part2_timeline.push(trial_part2, confidence_slider_trial, update_score_trial);
+
+                        if ((i + 1) % 10 === 0 && (i + 1) < part1_trials.length) {
+                            part2_timeline.push(score_update_screen);
+                        }
+
+
+                    }
+                    part2_timeline.push(number_correct_part1_slider, next_screen, number_correct_part2_slider, worker_comments, end_screen)
+                    jsPsych.addNodeToEndOfTimeline({
+                        timeline: part2_timeline
+                    });
+
+                }
+            }
+
+
+            timeline.push(transition_screen)
+
+            return timeline;
+
+        }
+
+
+
+
+
+
+
+        function updateScoreDisplay(score) {
+            const scoreEl = document.getElementById('score-value');
+            if (scoreEl) {
+                scoreEl.textContent = score;
+            }
+        }
+
+        function showScoreDisplay() {
+            const displayEl = document.getElementById('score-display');
+            if (displayEl) {
+                displayEl.style.display = 'block';
+            }
+        }
+
+        function hideScoreDisplay() {
+            const displayEl = document.getElementById('score-display');
+            if (displayEl) {
+                displayEl.style.display = 'none';
+            }
+        }
+
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+
+
+        async function startExperiment() {
+
+
+            const timeline = await makeTimeline();
+
+            jsPsych.init({
+                timeline: timeline,
+                display_element: 'jspsych-target',
+                message_loading: '',
+                on_finish: function () {
+                    const csv_data = jsPsych.data.get().csv();
+                    jatos.submitResultData(csv_data, jatos.endStudy);
+                }
+            });
+        }
+
+        jatos.onLoad(async function () {
+
+
+            var m = new MersenneTwister();
+            Math.random = function () { return m.random() };
+
+            var protocol_sum = jatos.batchSession.get("protocol_sum") || "default_protocol_see";
+
+
+            var subject_identifier = jatos.workerId;
+
+
+            function hexToBytes(hex) {
+                for (var bytes = [], c = 0; c < hex.length; c += 2)
+                    bytes.push(parseInt(hex.substr(c, 2), 16));
+                return bytes;
+            }
+
+            var subject_sum = hexToBytes(
+                CryptoJS.SHA256(protocol_sum + subject_identifier).toString()
+            );
+
+            m.init_by_array(subject_sum, subject_sum.length);
+
+
+
+            jsPsych.data.addProperties({
+                'protocol_sum': protocol_sum,
+                'subject_identifier': subject_identifier,
+                'subject_sum': subject_sum
+            });
+
+
+            const timeline = await makeTimeline();
+
+            jsPsych.init({
+                timeline: timeline,
+                display_element: 'jspsych-target',
+                on_finish: function () {
+                    console.log("Main timeline finished. The rest of the experiment is injected.");
+                    jatos.endStudyAndRedirect("https://app.prolific.com/submissions/complete?cc=CKG9ZFWR", true, "complete")
+                }
+            });
+        });
+
+    </script>
+</body>
+
+</html>

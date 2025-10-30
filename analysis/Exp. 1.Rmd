@@ -1,0 +1,605 @@
+---
+title: "Experiment 1: results"
+output: word_document
+date: "2025-09-22"
+---
+
+```{r global_options, include=FALSE, cache=F}
+knitr::opts_chunk$set(fig.width=4, fig.height=3, fig.crop = F, 
+                      fig.pos = "tb", fig.path='figs/',
+                      echo=F, warning=F, cache=T, 
+                      message=F, cache=T, sanitize = T)
+```
+
+```{r setup, include = FALSE, cache=F}
+
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja',
+    'tidyverse',
+    'broom',
+    'lme4',
+    'lsr' # for cohen's d
+  ), "2025-06-01"
+)
+
+r_refs("r-references.bib")
+
+knitr::opts_chunk$set(warning=F,echo=F,message=F,cache=T)
+
+```
+
+```{r load and format, include = FALSE, cache=F}
+
+# The label for catch trials does not work, so recoding here
+
+fruit_list <-  c("Apples",
+    "Bananas",
+    "Cherry",
+    "Grapes",
+    "Oranges",
+    "Pear",
+    "Strawberries")
+
+# Path to your txt file
+file <- ''
+
+# Read all lines
+lines <- readLines(file)
+
+# Find the indices where a new CSV starts
+starts <- which(grepl('^"?\\s*success', lines))
+
+# Add an extra index at the end to close the last chunk
+starts <- c(starts, length(lines) + 1)
+
+# Split into chunks
+chunks <- map2(starts[-length(starts)], starts[-1] - 1,
+               ~ lines[.x:.y])
+
+# Parse each chunk as a CSV
+dfs <- map(chunks, ~ read_csv(paste(.x, collapse = "\n")))
+
+# Combine
+raw_df <- bind_rows(dfs) %>%
+  mutate(subj_id=PROLIFIC_PID,
+         correct=correct=='true',
+         is_catch_trial=is_catch_trial=='true',
+         left_number = as.numeric(left_number),
+         middle_number=as.numeric(middle_number),
+         right_number=as.numeric(middle_number),
+         cumulative_score = as.numeric(cumulative_score),
+         is_consistent=as.logical(is_consistent),
+         trial_index = as.numeric(trial_index),
+         trial_index_e2=as.numeric(trial_index_e2),
+         RT=as.numeric(rt),
+         is_catch_trial = (left_word %in% fruit_list) | 
+           (right_word %in% fruit_list) | 
+           (middle_word %in% fruit_list)) %>%
+  filter(!is.na(subj_id))
+
+total_N <- raw_df$subj_id %>% unique() %>% length()
+```
+
+```{r exclusion and formatting, include = FALSE, cache=F}
+
+phase_1_df <- raw_df %>%
+  filter(phase=='part1') %>%
+  dplyr::select(subj_id, trial_index,left_word,left_number,
+                middle_word,middle_number,right_word,right_number,
+                correct_choice_position,participant_response_position, 
+                is_catch_trial,rule_condition,RT) %>%
+  mutate(correct=correct_choice_position ==
+           participant_response_position) %>% # just to make sure
+  group_by(subj_id) %>%
+  arrange(trial_index)%>%
+  mutate(trial_index = 1:n(),
+         chosen_side=ifelse(rule_condition==participant_response_position, 
+                            'only_stones','other_side'))
+
+
+participants_to_exclude_comprehension <- raw_df %>%
+  group_by(subj_id) %>%
+  summarise(failures_1 = mean(comprehension_failures_part1,na.rm=T),
+            failures_2 = mean(comprehension_failures_part2,na.rm=T)) %>%
+  rowwise() %>%
+  mutate(max_failures = max(failures_1,failures_2)) %>%
+  filter(max_failures > 1) %>%
+  pull(subj_id)
+
+participants_to_exclude_catch <- phase_1_df %>%
+  filter(is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(acc_catch=mean(correct)) %>%
+  filter(acc_catch<0.5) %>% #2 or 3 errors out of three
+  pull(subj_id)
+
+participants_to_exclude_RT <- raw_df %>%
+  filter(!is.na(phase))%>%
+  group_by(subj_id,phase) %>%
+  summarise(RT_first_quartile=quantile(RT,0.25,na.rm=T)) %>%
+  filter(RT_first_quartile<=100) %>%
+  pull(subj_id)
+
+participants_to_exclude <- unique(c(participants_to_exclude_RT,
+                                    participants_to_exclude_catch, 
+                                    participants_to_exclude_comprehension))
+
+phase_1_df <- phase_1_df  %>%
+  filter(!(subj_id %in% participants_to_exclude)) 
+
+phase_2_df <- raw_df %>%
+  filter(phase=='part2') %>%
+  filter(!(subj_id %in% participants_to_exclude)) %>%
+  dplyr::select(subj_id, trial_index, 
+                participant_response_position_e2,
+                rule_condition, is_consistent, RT) %>%
+  mutate(reconstructed_action = participant_response_position_e2) %>%
+  rename(RT2=RT) %>%
+  group_by(subj_id) %>%
+  arrange(trial_index)%>%
+  mutate(trial_index = 1:n(),
+         chosen_side_part2=ifelse(rule_condition==reconstructed_action, 
+                                  'only_stones','other_side'))
+
+two_parts_df <- phase_1_df %>%
+  merge(phase_2_df) %>%
+  rowwise()%>%
+  mutate(number1 = get(paste0(participant_response_position, "_number")),
+         number2 = get(paste0(participant_response_position_e2, "_number")),
+         chose_highest1 = number1 == pmax(left_number, middle_number, right_number),
+         chose_highest2 = number2 == pmax(left_number, middle_number, right_number))
+
+
+included_N <- two_parts_df$subj_id %>% unique() %>% length()
+
+participants_by_condition <- two_parts_df %>%
+  group_by(subj_id) %>%
+  summarise(condition = rule_condition[1]) %>%
+  group_by(condition) %>%
+  summarise(n=n()) %>%
+  spread(condition,n)
+
+```
+
+```{r explicit rule discoverers, include = FALSE, cache=F}
+
+rule_check_df <- 
+  raw_df %>%
+  filter(grepl("rule_check", response)) %>% 
+  dplyr::select(subj_id,response,rule_condition)
+
+discovered_rule <- rule_check_df %>%
+  filter(subj_id %in% c(
+    '60fe7bf61c7567f5cca9ade6',
+    '5ecf9b46617a9b3dd56b3fe3',
+    '5ebc0abd2cc5f1054c82a0d7',
+    '654bc148c95bca00d541ec33',
+    '66dcc0e54f44ccecf2730c76',
+    '631d197eba06364cbea7fab2',
+    '66fd3f6c93c24ecc119be354',
+    '66e9236f775eae67be04229d',
+    '66b244a2f436437d3e109bbe',
+    '63ee9abfa262bea95766dd9c',
+    '66cfab152c56aa0472529001',
+    '5bf368846edd7200017136c7',
+    '66d9cd06e207a93377f7820e',
+    '5962a5b29955ee00015bce98',
+    '632d189d6b8f03d0d3db4c48',
+    '63b3377ca1ccdfc7cc567503',
+    '6658bba1a51a037d25bb677e',
+    '662945728093113a43ab8077',
+    '676058418c08c71e4bb7cbd1',
+    '58954e2dc88c680001dd4b7e',
+    '681b781064a5701a5ceee3bc',
+    '682b3f63d0e2c4eff64fe664',
+    '5d3695969749cc00165c222f',
+    '6773dea609f77d473900997a',
+    '60e3a25e8be835f754795d93') &
+      !(subj_id %in% participants_to_exclude)) 
+
+two_parts_df <- two_parts_df %>% 
+  mutate(mentioned_rule = subj_id %in% discovered_rule$subj_id)
+
+```
+
+`r total_N` participants took part in the experiment. `r participants_to_exclude_catch%>%length()` were excluded based on failing 2 or more catch trials, `r participants_to_exclude_comprehension%>%length()` based on requiring three or more repetitions of the instructions before passing the comprehension checks in part 1 or in part 2, and `r participants_to_exclude_RT%>%length()` based on responding too quickly (100 ms or below) on at least 25% of trials in at least one part of the experiment, leaving `r included_N` participants for the main analysis: `r participants_by_condition$left` for whom the left position never had gems, `r participants_by_condition$middle` for whom it was the middle one and `r participants_by_condition$right` for whom it was the right one. 
+
+When asked at the end of the experiment whether they discovered a rule, a subset of `r discovered_rule%>%nrow()` participants (hereafter, explicit learners) mentioned the location of the boxes -- either directly specifying the rule or mentioning that a specific position was more likely to have gems in it. 
+
+## phase 1
+
+```{r accuracy,  cache=F, fig.width=8}
+
+library(dplyr)
+library(ggplot2)
+
+# --- Define bins exactly as requested ---
+bin_labels <- c("1","2–6","7–12","13–18","19–24","25–30","31–36","37–42","43–48","49–53","54–60")
+breaks <- c(0.5, 1.5, 6.5, 12.5, 18.5, 24.5, 30.5, 36.5, 42.5, 48.5, 53.5, 60.5)
+# vertical lines between bins (since x will be discrete, these numeric positions still work)
+vline_x <- seq(1.5, length(bin_labels) - 0.5, by = 1)
+
+# --- Clean + bin ---
+df_binned <- two_parts_df %>%
+  filter(!is_catch_trial) %>%     # drop catch trials if present
+  mutate(
+    bin = cut(trial_index, breaks = breaks, labels = bin_labels,
+              include.lowest = TRUE, right = TRUE),
+    bin = factor(bin, levels = bin_labels)
+  )
+
+# --- Per-subject accuracy within each bin & rule ---
+by_subj <- df_binned %>%
+  group_by(subj_id, mentioned_rule, bin) %>%
+  summarise(acc = mean(correct, na.rm = TRUE), .groups = "drop")
+
+# --- Group mean ± SE across participants (within each rule × bin) ---
+group_summary <- by_subj %>%
+  group_by(mentioned_rule, bin) %>%
+  summarise(
+    m  = mean(acc, na.rm = TRUE),
+    se = sd(acc,  na.rm = TRUE) / sqrt(dplyr::n()),
+    n  = dplyr::n(),    # number of participants contributing in that rule × bin
+    .groups = "drop"
+  )
+
+# --- Plot: two colours (rules), points ± SE, vertical bin lines ---
+pd <- position_dodge(width = 0.5)
+
+ggplot(group_summary, aes(x = bin, y = m, color = mentioned_rule, group = mentioned_rule)) +
+  geom_vline(xintercept = vline_x, linetype = "dashed", linewidth = 0.3) +
+  geom_hline(yintercept = 1/2, linewidth = 0.3) +
+  geom_hline(yintercept = 1/3, linewidth = 0.3) +# optional chance line
+  geom_line(linewidth = 0.7,position=pd) +                     # connect group means
+  geom_point(position = pd, size = 2) +
+  geom_errorbar(aes(ymin = m - se, ymax = m + se), position = pd, width = 0.2) +
+  labs(x = "Trial bin", y = "Accuracy", color = "mentioned position",
+       title = "Binned Accuracy by rule discovery (group mean ± SE)") +
+  theme_minimal()
+
+phase_1_acc <- two_parts_df %>%
+  group_by(subj_id,mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  summarise(acc=mean(correct))
+
+# acc_slopes <- phase_1_df %>%
+#   group_by(subj_id) %>%
+#   filter(!is_catch_trial) %>%
+#   do(tidy(glm(correct ~ trial_index, family = binomial, data = .))) %>%
+#   filter(term == "trial_index") %>%
+#   select(subj_id, slope = estimate)
+
+```
+
+In part 1, mean proportion correct (in non-catch trials) was `r phase_1_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r phase_1_acc %>% pull(acc) %>%median()%>%printnum()`) and significantly higher than chance (1/3; `r apa_print(t.test(phase_1_acc %>% pull(acc),mu=1/3))$statistic`).
+
+Among the explicit learners, accuracy was `r phase_1_acc %>% filter(mentioned_rule) %>% pull(acc) %>%mean()%>%printnum()`, and among the rest of participants it was `r phase_1_acc %>% filter(!mentioned_rule) %>% pull(acc) %>%mean()%>%printnum()` and still higher than chance (`r apa_print(phase_1_acc %>% filter(!mentioned_rule) %>% pull(acc) %>%t.test(mu=1/3))$statistic`).
+
+```{r position avoidance, cache=F, fig.width=8}
+
+# --- Per-subject accuracy within each bin & rule ---
+by_subj1 <- df_binned %>%
+  group_by(subj_id, mentioned_rule, bin) %>%
+  summarise(bias = mean(chosen_side=='only_stones', na.rm = TRUE), .groups = "drop") %>%
+  mutate(part=1)
+
+by_subj2 <- df_binned %>%
+  group_by(subj_id, mentioned_rule, bin) %>%
+  summarise(bias = mean(chosen_side_part2=='only_stones', na.rm = TRUE), .groups = "drop") %>%
+  mutate(part=2)
+
+by_subj <- by_subj1 %>% rbind(by_subj2) %>%
+  mutate(part=factor(part))
+
+# --- Group mean ± SE across participants (within each rule × bin) ---
+group_summary <- by_subj %>%
+  group_by(mentioned_rule, part, bin) %>%
+  summarise(
+    m  = mean(bias, na.rm = TRUE),
+    se = sd(bias,  na.rm = TRUE) / sqrt(dplyr::n()),
+    n  = dplyr::n(),    # number of participants contributing in that rule × bin
+    .groups = "drop"
+  )
+
+# --- Plot: two colours (rules), points ± SE, vertical bin lines ---
+ggplot(group_summary, aes(x = bin, y = m, color = mentioned_rule,shape = part, linetype=part, group = interaction(mentioned_rule,part))) +
+  geom_vline(xintercept = vline_x, linetype = "dashed", linewidth = 0.3) +
+  geom_hline(yintercept = 1/3, linewidth = 0.3) +  # optional chance line
+  geom_line(linewidth = 0.7,position=pd) +                     # connect group means
+  geom_point(position = pd, size = 2) +
+  geom_errorbar(aes(ymin = m - se, ymax = m + se), position = pd, width = 0.2, linetype='solid') +
+  labs(x = "Trial bin", y = "P(stones only)", color = "mentioned position",
+       title = "Binned Bias by rule discovery (group mean ± SE)") +
+  theme_minimal()
+
+
+phase_1_pstones <- two_parts_df %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  summarise(pstones=mean(chosen_side=='only_stones'))
+
+pstones_slopes <- two_parts_df %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  mutate(chose_stone_side = chosen_side == 'only_stones') %>%
+  do(tidy(glm(chose_stone_side ~ trial_index, family = binomial, data = .))) %>%
+  filter(term == "trial_index") %>%
+  select(subj_id, slope = estimate)
+
+```
+
+Hypothesis 1 (RULE LEARNING: AVOIDANCE): In part 1, participants chose the side that always had stones (in non-catch trials)  on `r phase_1_pstones %>% pull(pstones) %>%mean()%>%printnum()` (median=`r phase_1_pstones %>% pull(pstones) %>%median()%>%printnum()`) of all trials, significantly below chance (1/3; `r apa_print(t.test(phase_1_pstones %>% pull(pstones),mu=1/3))$statistic`). 
+
+This figure was `r phase_1_pstones %>% filter(mentioned_rule) %>% pull(pstones) %>%mean()%>%printnum()` among explicit learners and `r phase_1_pstones %>% filter(!mentioned_rule) %>% pull(pstones) %>%mean()%>%printnum()`, still significantly below 0.33 (`r apa_print(phase_1_pstones %>% filter(!mentioned_rule) %>% pull(pstones) %>%t.test(mu=0.33))$statistic`), among the remaining participants. 
+
+Hypothesis 2 (RULE LEARNING: SLOPES): Participants improved as a function of trial number (a t-test on subject-specific learning slopes from a logistic regression against 0: `r apa_print(t.test(pstones_slopes %>% pull(slope)))$statistic`). This was marginally the case for those participants who were not explicit learners (`r apa_print(t.test(pstones_slopes %>% filter(!mentioned_rule)%>%pull(slope)))$statistic`))
+
+## phase 2
+
+```{r phase 2 accuracy, include = FALSE, cache=F}
+
+
+phase_2_acc <- two_parts_df %>%
+  group_by(subj_id,mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  summarise(acc=mean(is_consistent))
+
+
+```
+
+Hypothesis 3 (RECONSTRUCTION ACCURACY): In part 2, mean proportion correct (in non-catch trials) was `r phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r phase_2_acc %>% pull(acc) %>%median()%>%printnum()`) and significantly higher than chance (1/3; `r apa_print(t.test(phase_2_acc %>% pull(acc),mu=1/3))$statistic`).
+
+This figure was `r phase_2_acc %>%filter(mentioned_rule)%>% pull(acc) %>%mean()%>%printnum()` and `r phase_2_acc %>%filter(!mentioned_rule)%>% pull(acc) %>%mean()%>%printnum()` among other participants. 
+
+```{r phase 2 accuracy by phase 1 accuracy, include = FALSE, cache=F}
+
+
+phase_2_acc_by_phase_1_acc <- two_parts_df %>%
+  group_by(subj_id,correct,mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  summarise(acc=mean(is_consistent)) %>%
+  spread(correct,acc,sep='')%>%
+  mutate(diff=correctTRUE-correctFALSE)
+
+
+```
+
+Hypothesis 4 (RECONSTRUCTION ACCURACY BY GUESS ACCURACY):  Participants' ability to reconstruct their past decisions was significantly higher when they were correct in part 1 (mean accuracy = `r phase_2_acc_by_phase_1_acc$correctTRUE%>%mean()%>%printnum()`) compared to incorrect (mean accuracy = `r phase_2_acc_by_phase_1_acc$correctFALSE%>%mean()%>%printnum()`; `r apa_print(phase_2_acc_by_phase_1_acc$diff%>%t.test())$statistic`). 
+
+This effect was similarly strong between explicit learners and other participants (`r apa_print(t.test(phase_2_acc_by_phase_1_acc%>%filter(!mentioned_rule)%>%pull(diff), phase_2_acc_by_phase_1_acc%>%filter(mentioned_rule)%>%pull(diff)))$statistic`).
+
+```{r remembered versus actual accuracy, include = FALSE, cache=F}
+
+remembered_versus_actual_accuracy <- two_parts_df %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  summarise(remembered_accuracy=mean(participant_response_position_e2==correct_choice_position),
+            actual_accuracy = mean(participant_response_position==correct_choice_position),
+            diff=remembered_accuracy-actual_accuracy)
+
+```
+
+Hypothesis 5 (REMEMBERED ACCURACY VERSUS TRUE ACCURACY): Participants remembered their guesses as aligned with the location of the coins on `r remembered_versus_actual_accuracy$remembered_accuracy%>%mean()%>%printnum()`, a frequency significantly higher than their actual accuracy in part 1, which was `r remembered_versus_actual_accuracy$actual_accuracy%>%mean()%>%printnum()` (`r apa_print(remembered_versus_actual_accuracy$diff%>%t.test())$statistic`).
+
+This effect was not statistically different between explicit learners and other participants (`r apa_print(t.test(remembered_versus_actual_accuracy%>%filter(!mentioned_rule)%>%pull(diff), remembered_versus_actual_accuracy%>%filter(mentioned_rule)%>%pull(diff)))$statistic`).
+
+```{r phase 2 position bias, include = FALSE, cache=F}
+
+phase_2_position_bias <- two_parts_df %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  summarise(bias=mean(chosen_side_part2=='only_stones')) %>%
+  merge(phase_1_pstones) %>%
+  mutate(diff = bias-pstones)
+
+```
+
+In phase 2, participants chose the stone-only option on `r phase_2_position_bias$bias%>%mean()%>%printnum()` of all trials, significantly less than 1/3 (`r apa_print(phase_2_position_bias$bias%>%t.test(mu=1/3))$statistic`), and significantly less than the proportion in phase 1 (`r apa_print(phase_2_position_bias$diff%>%t.test())$statistic`).
+
+```{r phase 2 position bias incorrect only, include = FALSE, cache=F}
+
+phase_2_position_bias_incorrect_only <- two_parts_df %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial & !is_consistent & correct) %>%
+  summarise(bias=mean(chosen_side_part2=='only_stones'))
+
+dat <- two_parts_df %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial & !is_consistent & correct) %>%
+  mutate(decision=as.integer(chosen_side_part2=='only_stones'))
+
+m <- glmer(decision ~ 1 + (1 | subj_id),
+           data = dat, family = binomial,
+           control = glmerControl(optimizer = "bobyqa"))
+
+```
+
+Hypothesis 6 (POSITION BIAS IN RECONSTRUCTION ERRORS):  We tested the probability of choosing the stones-only position on trials in which participants' guesses in part 2 were inaccurate relative to their decision in part 1, which revealed gems.  This deconfounds the bias against the stones-only side from a bias to be correct, or from a memory for originally biased actions. On such trials, participants selected the only-stones side on `r phase_2_position_bias_incorrect_only$bias%>%mean()%>%printnum()` and marginally lower than the baseline of 50% (`r apa_print(phase_2_position_bias_incorrect_only$bias%>%t.test(mu=0.5))$statistic`).
+
+Interestingly, this bias was `r phase_2_position_bias_incorrect_only %>% filter(!mentioned_rule)%>%pull(bias)%>%mean()%>%printnum()` among paticipants who did not report learning the rule (only marginally below chance: `r apa_print(phase_2_position_bias_incorrect_only %>% filter(!mentioned_rule)%>%pull(bias)%>%t.test(mu=0.5))$statistic`), but `r phase_2_position_bias_incorrect_only %>% filter(mentioned_rule)%>%pull(bias)%>%mean()%>%printnum()` among participants who reported noticing the rule (and significantly below chance: `r apa_print(phase_2_position_bias_incorrect_only %>% filter(mentioned_rule)%>%pull(bias)%>%t.test(mu=0.5))$statistic`).
+
+### Reaction times
+
+```{r reaction times in part 2, include = FALSE, cache=F}
+
+RT2_by_gems <- two_parts_df %>%
+  mutate(correct2 = participant_response_position_e2 == correct_choice_position) %>%
+  group_by(subj_id,mentioned_rule,correct2) %>%
+  summarise(RT=median(RT2)) %>%
+  spread(correct2,RT,sep='') %>%
+  mutate(diff=correct2TRUE-correct2FALSE)
+
+RT2_by_gems_consistent_only <- two_parts_df %>%
+  filter(is_consistent) %>%
+  mutate(correct2 = participant_response_position_e2 == correct_choice_position) %>%
+  group_by(subj_id,mentioned_rule,correct2) %>%
+  summarise(RT=median(RT2)) %>%
+  spread(correct2,RT,sep='') %>%
+  mutate(diff=correct2TRUE-correct2FALSE)
+
+RT2_by_consistency <- two_parts_df %>%
+  group_by(subj_id,mentioned_rule,is_consistent) %>%
+  summarise(RT=median(RT2)) %>%
+  spread(is_consistent,RT,sep='') %>%
+  mutate(diff=is_consistentTRUE-is_consistentFALSE)
+
+
+two_parts_df %>%
+  mutate(correct2 = participant_response_position_e2 == correct_choice_position) %>%
+  group_by(subj_id,mentioned_rule,correct, correct2) %>%
+  summarise(RT=median(RT2)) %>%
+  mutate(condition = factor(ifelse(correct & correct2, 'hit then hit',
+                            ifelse(correct & !correct2, 'hit then miss',
+                                   ifelse(!correct & !correct2, 'miss then miss',
+                                          'miss then hit'))),
+                            levels=c('hit then hit','miss then miss',
+                                     'miss then hit','hit then miss'))) %>%
+  ggplot(aes(x=condition,y=RT)) +
+  geom_boxplot()+
+  geom_jitter(width=0.15,alpha=0.5)
+```
+
+In part 2, participants were slower by `r RT2_by_gems$diff%>%median()%>%abs()%>%round()` ms to reconstruct their actions when they reported choosing the box that did not have gems in it compared to when reporting choosing the box that did have gems in it (`r apa_print(RT2_by_gems$diff%>%t.test())$statistic`). When focusing on trials in which participants correctly reconstructed their action, this difference was `r RT2_by_gems_consistent_only$diff%>%median()%>%abs()%>%round()` ms (`r apa_print(RT2_by_gems_consistent_only$diff%>%t.test())$statistic`).
+
+Participants were slower by `r RT2_by_consistency$diff%>%median()%>%abs()%>%round()` ms when incorrectly reconstructing their actions compared to when their reconstructions were accurate (`r apa_print(RT2_by_consistency$diff%>%t.test())$statistic`).
+
+
+
+
+```{r phase 2 slopes, include = FALSE, cache=F}
+
+phase_2_slopes <- two_parts_df %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  mutate(chose_stone_side = chosen_side_part2 == 'only_stones') %>%
+  do(tidy(glm(chose_stone_side ~ trial_index, family = binomial, data = .))) %>%
+  filter(term == "trial_index") %>%
+  select(subj_id, slope = estimate)
+
+learning_effect <- two_parts_df %>%
+  mutate(half=ifelse(trial_index<31,'first','second')) %>%
+  group_by(subj_id,half) %>%
+  filter(!is_catch_trial) %>%
+  mutate(chose_stone_side = chosen_side_part2 == 'only_stones') %>%
+  summarise(p=mean(chose_stone_side)) %>%
+  spread(half,p) %>%
+  mutate(diff=first-second) %>%
+  pull(diff) %>% 
+  t.test()
+
+part1_choices <- phase_1_df %>%
+  select(subj_id, trial_index, part1_chose_gems = correct)
+
+phase_2_merged_df <- two_parts_df %>%
+  left_join(part1_choices, by = c("subj_id", "trial_index"))
+
+data_for_test <- phase_2_merged_df %>%
+  filter(!is_catch_trial, !is.na(part1_chose_gems)) %>%
+  group_by(subj_id)
+  
+
+data_for_test_chosegems <- data_for_test %>%
+  filter(part1_chose_gems)
+
+data_for_test_chosenongems <- data_for_test %>%
+  filter(!part1_chose_gems)
+
+t.test(x=data_for_test_chosegems$is_consistent, y=data_for_test_chosenongems$is_consistent, paired=TRUE)
+
+cohen.d(as.numeric(is_consistent) ~ part1_chose_gems, data = data_for_test)
+
+
+
+consistency_summary <- two_parts_df %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, correct) %>% # 'correct' is a boolean for Part 1 accuracy
+  summarise(mean_consistency = mean(is_consistent, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = correct,
+              names_prefix = "consistency_when_p1_",
+              values_from = mean_consistency)
+
+t.test(x = consistency_summary$consistency_when_p1_TRUE,
+       y = consistency_summary$consistency_when_p1_FALSE,
+       paired = TRUE)
+
+
+
+cohen.d(as.numeric(is_consistent) ~ correct,
+        data = two_parts_df %>% filter(!is_catch_trial),
+        pooled = TRUE, paired = FALSE)
+
+
+first_trial_data <- two_parts_df %>%
+  filter(trial_index == 1)
+
+correct_t1_ids <- first_trial_data %>%
+  filter(correct == TRUE) %>%
+  pull(subj_id)
+
+incorrect_t1_ids <- first_trial_data %>%
+  filter(correct == FALSE) %>%
+  pull(subj_id)
+  
+t1_correct <- two_parts_df %>%
+  filter(subj_id %in% correct_t1_ids) %>%
+  filter(trial_index != 1) %>%
+  group_by(subj_id) %>%
+  summarise(mean_acc = mean(correct))
+  
+t1_incorrect  <- two_parts_df %>%
+  filter(subj_id %in% incorrect_t1_ids) %>%
+  filter(trial_index != 1) %>%
+  group_by(subj_id) %>%
+  summarise(mean_acc = mean(correct))
+
+t.test(t1_correct$mean_acc, t1_incorrect$mean_acc)
+
+
+```
+
+Like in part 1, the probability of selecting the only-stones option did not decrease as a function of trial number (`r apa_print(phase_2_slopes$slope%>%t.test())$statistic`).
+
+```{r selected_box_number, include = FALSE, cache=F}
+
+two_parts_df %>%
+  group_by(trial_index) %>%
+  filter(!is_catch_trial) %>%
+  summarise(n1 = mean(number1),
+         n2 = mean(number2),
+         se1 = se(number1),
+         se2 = se(number2)) %>%
+  pivot_longer(
+    cols = c(n1, n2, se1, se2),
+    names_to = c(".value", "part"),
+    names_pattern = "([a-z]+)([0-9]+)"
+  ) %>%
+  ggplot(aes(x=trial_index,y=n,color=part,fill=part))+
+  geom_line()+
+  geom_ribbon(aes(ymin=n-se,ymax=n+se),alpha=0.5)
+
+number_df <- two_parts_df %>% 
+  group_by(subj_id) %>%
+  summarise(n1=mean(number1), 
+            n2=mean(number2)) %>%
+  mutate(diff=n1-n2) # no difference
+  
+
+  # do(tidy(glm(chose_stone_side ~ trial_index, family = binomial, data = .))) %>%
+  # filter(term == "trial_index") %>%
+  # select(subj_id, slope = estimate)
+
+learning_effect <- two_parts_df %>%
+  mutate(half=ifelse(trial_index<31,'first','second')) %>%
+  group_by(subj_id,half) %>%
+  filter(!is_catch_trial) %>%
+  mutate(chose_stone_side = chosen_side_part2 == 'only_stones') %>%
+  summarise(p=mean(chose_stone_side)) %>%
+  spread(half,p) %>%
+  mutate(diff=first-second) %>%
+  pull(diff) %>% 
+  t.test()
+
+
+```

@@ -1,0 +1,144 @@
+---
+title             : "Pre-registration: memory for decisions 2"
+shorttitle        : "memory for decisions 2"
+
+author: 
+  - name          : "Keishiro Sawa"
+    affiliation   : "1"
+    corresponding : no    # Define only one corresponding author
+  - name          : "Matan Mazor"
+    affiliation   : "1"
+    email         : "matan.mazor@all-souls.ox.ac.uk"
+    corresponding : yes
+
+
+affiliation:
+  - id            : "1"
+    institution   : "University of Oxford"
+
+floatsintext      : no
+linenumbers       : yes
+draft             : no
+mask              : no
+
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+
+classoption       : "man"
+output            : word_document
+bibliography: references.bib
+---
+
+```{r setup, include = FALSE}
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja', #for apa formatting
+    'pwr', # for power calculation
+    'tidyverse' # for pipe %>%
+  ), "2025-06-01"
+)
+
+r_refs("r-references.bib")
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+# Motivation
+
+In a previous experiment, we found that people better remember their past guesses if they were accurate. As a result, they remember their past decisions as more accurate than they were. Here we will attempt to replicate these results, and further ask two additional questions: whether this “outcome bias” in memory for own decisions affects subjective confidence as well, and whether it is sensitive to the availability of information about the ground-truth answer at the time of memory retrieval. 
+
+# Methods
+
+We report how we determined our sample size, all data exclusions (if any), all manipulations, and all measures in the study. Differences from Exp. 1 appear **in bold**. <!-- 21-word solution (Simmons, Nelson & Simonsohn, 2012; retrieved from http://ssrn.com/abstract=2160588) -->
+
+## Participants
+
+The research complies with all relevant ethical regulations, and was approved by the Medical Sciences Interdivisional Research Ethics Committee at the University of Oxford (MSD IDREC 1091017). Participants will be recruited via Prolific, and will give informed consent prior to their participation. To be eligible to take part in this study, their Prolific approval rate will need to be 95% or higher, their reported first language English, and their age between 18 and 60. We will collect data until we reach 100 included participants (after applying our pre-registered exclusion criteria). The entire experiment will take **15** minutes to complete. Participants will be equivalent to an hourly wage of £9. The top-performing 30% of participants will receive an additional bonus of $1 (£0.75).
+
+## Procedure
+
+The experiment will comprise two parts, each consisting of **50** trials. In part 1, participants will make guesses about the location of hidden coins, and in part 2 they will attempt to reconstruct their guess sequence from part 1, **and provide subjective confidence ratings**.
+
+### Part 1
+
+On each trial, participants will be presented with three "boxes", ordered left to right, each labelled with a unique noun (sampled without replacement from a list of 298 common English nouns) and a number (sampled from a uniform distribution over 1-5). Participants will be told that the number indicates the number of items in the box: stones or gems. While stones are worthless, each gem is worth 1 point. Only one of the three boxes has gems in it, and participants' task is to accumulate as many points as possible by collecting gems. After selecting a box with their mouse, the content of the box will be revealed (stones or gems). After 500 ms, the content of the two other boxes will be revealed as well. A counter at the top left corner of the screen will indicate the total number of points accumulated. Participants will need to click on a "continue" button to move to the next trial. 
+
+Before starting part 1, participants will be told that whenever a fruit word appears, it is guaranteed to have gems in it. Three such trials will be included, and will be used as an attention check by us. Participants will also see a leaderboard with the total scores of the top-performing participants, and will complete two comprehension questions. Participants will continue to the main part of the experiment only after correctly answering the two questions, otherwise they will be presented with the instructions again. 
+
+Unbeknownst to participants, gems will only appear in two of the three positions: **both positions will show green gems. At the end of the experiment, participants will be asked if they noticed any regularity in the location of the gems.**
+
+### Part 2
+
+Immediately after completing part 1, participants will be instructed about part 2. **Participants will be informed of the hidden rule from part 1 before moving onto part 2 (e.g. "the gems would never appear in the right box")** In part 2, they will be presented with the exact same sequence of **50** box arrangements as before, but their task will be different. Instead of guessing the location of the gems, they will attempt to reconstruct the exact same sequence of guesses as in part 1. **After each reconstruction trial, they will also give a confidence rating using a vertical slider going from "Fully guessing" to "Fully confident" (coded as 0 and 100, respectively). In every reconstruction trial, the boxes will be outlined such that a green outline indicates that the box contained gems in part 1, and a black outline indicates that it contained stones in part 1.**
+
+
+For every trial in which they guess the same box they had guessed in part 1, they will receive 3 points. In part 2, feedback about the number of accumulated points thus far will be delivered once in every 10 trials instead of after each individual trial. Participants will continue to part 2 only after correctly answering **four** comprehension questions. **The first trial of part 2 will be accompanied by detailed feedback. The first trial will be a replication of part 1 trial 1, where the boxes are presented in the same locations. A selection of the box is followed by a confidence judgement. After the trial, participants will be informed of their decision and confidence rating, but no feedback will be given (e.g. "You recalled that in round number 1 you selected the box labelled "Fish". Your confidence was 85 on a scale of 0-100. If your memory is accurate, you will get 3 points for this round.").** 
+
+**At the end of the experiment, we ask participants to estimate the number of trials for which they obtained gems in part 1 and the number of trials in which their memory was accurate in part 2 (both out of 50).** Finally, participants will be asked whether they had any comments about the experiment. 
+
+```{r design, echo=FALSE, fig.cap="Experimental design.  Elements are not drawn to scale. In part 1 (upper panel), participants will make 50 decisions between three boxes. Each box will be labelled with a unique noun and a number in the range of 1 and 5, indicating the number of stones or gems in the box. On each trial, only one box will contain gems, and the other two boxes will contain stones. A gem is worth a point, but a stone is valueless. Participants will not be told that one position (left, middle, or right) will always contain stones. In part 2 (lower panel), participants will attempt to produce the same series of guesses as in part 1. The box that contained gems in part 1 is outlined in green, while boxes that contained stones are outlined in black. Accurately reproducing a decision will reward them with three points (although feedback is not given). After each guess participants make, they will also give a subjective confidence rating using a vertical slider going from 'fully guessing' to 'fully confident' (coded as 0 and 100 respectively). They will receive feedback once in every 10 trials. ", out.width = '75%'}
+knitr::include_graphics("figures/design2.png")
+```
+
+## Randomization
+
+The box labels and their associated numbers will be determined pseudo-randomly by the Mersenne Twister pseudorandom number generator, initialized in a way that ensures registration time-locking [@Mazor2019].
+
+# Data analysis
+
+## Rejection criteria
+
+Participants will be excluded if they fail to choose the fruit-labelled box in two or more catch trials. We will also exclude participants for having extremely fast reaction times in one or more of the tasks (below 100 milliseconds in more than 25% of the trials), or for requiring three or more rounds of instructions in part 1 or in round 2. 
+
+## Hypotheses and analysis plan
+
+This study is designed to test participants' ability to reconstruct their past decisions or guesses.
+
+Replicating experiment 1:
+Hypothesis 1 (RULE LEARNING: AVOIDANCE): We will test the null hypothesis that the likelihood of selecting the stones-only box in part 1 is equal to chance (1/3). This will be tested using a one-sample t-test against $\mu=1/3$. A proportion lower than 1/3 will be taken as evidence for learning. 
+
+Hypothesis 2 (RULE LEARNING: SLOPES): We will test the null hypothesis that the probability of selecting the stones-only box in part 1 does not change with time. This will be tested using a one-sample t-test on subject-specific slopes (in log-odds units) from a logistic regression fitted to the data of individual participants $choose\_stones\_only \sim trial\_number$. 
+
+Hypothesis 3 (RECONSTRUCTION ACCURACY): We will test the null hypothesis that participants' accuracy in reconstructing their choices from part 1 is at chance (1/3). This will be tested using a one-sample t-test against $\mu=1/3$.
+
+Hypothesis 4 (RECONSTRUCTION ACCURACY BY GUESS ACCURACY): We will test the null hypothesis that participants' accuracy in reconstructing their choices from part 1 is the same for decisions in which they revealed gems or stones. This will be tested using a paired t-test.
+
+Hypothesis 5 (REMEMBERED ACCURACY VERSUS TRUE ACCURACY): We will test the null hypothesis that participants' remembered decisions coincide similarly with the true location of gems as their actual decisions in part 1.  This will be tested using a paired t-test.
+
+Hypothesis 6 (POSITION BIAS IN RECONSTRUCTION ERRORS): We will test the null hypothesis that participants' remembered decisions are not biased for or against the stones-only location. For this, we will focus on trials in which the original decision revealed gems, but they made an error in reconstruction. We will compare the probability of choosing the stones-only position against 50%. Since different participants will have different number of trials for this analysis, this will be tested using a mixed-effects logistic regression ($chose\_stones\_only \sim 1+(1|subj\_id)$, run with lme4's glmer, assuming a binomial variable and using a bobyqa optimizer). 
+
+
+**New hypotheses tested in this current experiment:**
+
+**Hypothesis 7 (CONFIDENCE: CORRECT VERSUS INCORRECT): We will test the null hypothesis that participants' confidence for part 2 is equal for correct and incorrect decisions. This will be tested using a paired t-test.**
+
+**Hypothesis 8 (CONFIDENCE: GEMS VERSUS STONES):We will test the null hypothesis that participants' confidence in part 2 is equal when choosing gems and stones (correct responses only). This will be tested using a paired t-test. **
+
+**Hypothesis 9 (RT: CORRECT VERSUS INCORRECT): We will test the null hypothesis that participants' confidence in part 2 is equal when choosing the stones-only position to when choosing the other stones position (correct responses only). This will be tested using a paired t-test.**
+
+**Hypothesis 10 (RT: CORRECT VERSUS INCORRECT): We will test the null hypothesis that participants’ RT for part 2 is equal for correct and incorrect decisions. This will be tested using a paired t-test on individual participants’ median reaction times.**
+
+**Hypothesis 11 (RT: GEMS VERSUS STONES): We will test the null hypothesis that participants’ RT in part 2 is equal when choosing gems and stones (correct responses only). This will be tested using a paired t-test on individual participants’ median reaction times. **
+
+**Hypothesis 12 (RT: STONES VERSUS STONES ONLY):We will test the null hypothesis that participants’ RT in part 2 is equal when choosing the stones-only position to when choosing the other stones position (correct responses only). This will be tested using a paired t-test. **
+
+
+## Exploratory analysis
+**We record mouse movements during the trials which will be used for further exploratory analysis, specifically hovering behaviour during selection of boxes and confidence ratings. We will also perform some exploratory analysis based on the participants' response to how many trials they think they got correct in part 1.**
+
+
+## Sample size justification
+
+With 100 participants, we will have a statistical power of `r pwr.t.test(n=100,d=0.4, type='paired')$power%>%printnum()` to detect effect sizes of 0.4 standard deviations in a within-subject t-test.
+
+\newpage
+
+References
+

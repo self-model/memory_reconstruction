@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Reconstruction Experiment</title>
+    
+    <script src="jatos.js"></script>
+    <script src="mersenne-twister.js"></script>
+    <script src="crypto-js.min.js"></script>
+
+    <script src="https://unpkg.com/jspsych@6.3.1/jspsych.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-html-button-response.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-survey-multi-choice.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-instructions.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-fullscreen.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-external-html.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-survey-text.js"></script>
+    <script src="https://unpkg.com/jspsych@6.3.1/plugins/jspsych-survey-html-form.js"></script>
+    
+    <link href="https://unpkg.com/jspsych@6.3.1/css/jspsych.css" rel="stylesheet" type="text/css" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #jspsych-target {
+             display: flex;
+             justify-content: center;
+             min-height: 100vh;
+             background-color: #f1f5f9;
+             /* Positions the top of the content 10px from the screen edge */
+             padding-top: 10px; 
+        }
+        .jspsych-content-wrapper {
+            width: 100%;
+            max-width: 56rem;
+        }
+        
+        /* Spacing for trial elements */
+        .progress-bar-container {
+            margin-top: 10px;
+        }
+        .choices-container {
+            margin-top: 20px;
+        }
+        .continue-button-container {
+            margin-top: 10px;
+        }
+
+        /* Fixed size for the choice boxes */
+        .stimulus-card {
+            width: 180px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin: 0 auto;
+            padding: 1rem;
+            border-radius: 0rem;
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            cursor: pointer;
+            text-align: center;
+            border-width: 2px;
+            border-color: transparent;
+        }
+
+        /* Styling for the image area */
+        .image-container {
+            margin-top: 5px;
+            min-height: 310px; /* Reserves 150px of space for the stacked images */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .image-container img {
+            margin: 0; /* No vertical margin between stacked images */
+        }
+
+        .feedback-text-container {
+            min-height: 52px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        .feedback-correct { border-color: #22c55e; }
+        .feedback-incorrect { border-color: #000000; }
+
+        .leaderboard-table { border-collapse: collapse; margin: 2rem auto; font-size: 1.125rem; width: 100%; max-width: 24rem; }
+        .leaderboard-table th, .leaderboard-table td { padding: 0.75rem 1rem; text-align: left; }
+        .leaderboard-table thead tr { background-color: #10b981; color: white; font-weight: 600; }
+        .leaderboard-table tbody tr:nth-child(even) { background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+    <div id="score-display" style="display: none; position: fixed; top: 1rem; right: 1.5rem; z-index: 1000; background-color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.125rem; font-weight: 600; color: #334155;">
+        Points: <span id="score-value">0</span>
+    </div>
+
+    <div id="jspsych-target"></div>
+
+    <script>
+    
+        
+        
+
+        
+        async function makeTimeline() {
+
+            const urlParams = jatos.urlQueryParameters;
+
+            
+
+            
+
+            jsPsych.data.addProperties(urlParams);
+            
+            
+            // --- SHARED CONFIGURATION ---
+            const NUM_NORMAL_TRIALS = 57;
+            const NUM_CATCH_TRIALS = 3;
+            const TOTAL_TRIALS_PART1 = NUM_NORMAL_TRIALS + NUM_CATCH_TRIALS;
+
+            let NOUNS = [];
+            let FRUITS = [];
+            let shuffledNouns = [];
+            let shuffledFruits = [];
+            let nounIndex = 0;
+            let fruitIndex = 0;
+            let cumulativeScore = 0;
+
+            let leaderboardData = [];
+
+            // determine conditions
+            const conditions = ['left','middle','right'];
+            const [rulecondition, rubyposition, emeraldposition] = jsPsych.randomization.shuffle(conditions);
+            
+            
+            
+            jsPsych.data.addProperties({
+                rule_condition: rulecondition, 
+                rubyposition: rubyposition, 
+                emeraldposition: emeraldposition});    
+            
+
+            try {
+                const leaderboardObject = jatos.batchSession.get('Bonuses');
+                Object.entries(leaderboardObject).forEach(([playerId, score]) => {
+                    leaderboardData.push({ playerId: playerId, score: score });
+                });
+
+            } catch (error) {
+                console.error("Could not process leaderboard data:", error);
+                leaderboardData = [];
+            }
+
+            try {
+                const response = await fetch('assets/nouns.json');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const wordData = await response.json();
+                NOUNS = wordData.nouns;
+                FRUITS = wordData.fruits;
+
+                shuffledNouns = jsPsych.randomization.shuffle([...NOUNS]);
+                shuffledFruits = jsPsych.randomization.shuffle([...FRUITS]);
+
+            } catch (error) {
+                console.error("Error loading nouns.json:", error);
+                document.getElementById('jspsych-target').innerHTML = `<div class="text-center bg-white p-8 rounded-lg shadow-lg"><h1 class="text-2xl font-bold text-red-600 mb-4">Error loading assets</h1><p class="text-slate-600">Could not load word list.</p></div>`;
+                return; 
+            }
+
+            const timeline = [];
+
+            const enter_fullscreen = {
+                type: 'fullscreen',
+                fullscreen_mode: true
+                };
+            timeline.push(enter_fullscreen);
+            
+            // Get current number of participants from batch data
+            const currentSize = Object.keys(jatos.batchSession.get('Bonuses')).length;
+            const newPlayerId = `Player ${currentSize + 1}`;
+            
+
+            // =======================================================================
+            // --- PART 1: DATA COLLECTION ---
+            // =======================================================================
+            
+            const welcome_part1 = {
+                type: 'html-button-response',
+                stimulus: `
+                    <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <h1 class="text-3xl md:text-4xl font-bold mb-4">Welcome to the three-box game!</h1>
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">This game has two parts, and should take no more than 10 minutes to complete. The top performing 30% of players will get an additional $1 bonus payment.</p>
+                    </div>`,
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Continue</button>'],
+                button_html: '%choice%',
+            };
+
+            const instructions_part1 = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">In each round of Part 1 we will show you three boxes side by side. Exactly one box will contain gems, and the rest will contain worthless stones. Your goal is to collect as many <span class="font-semibold">gems</span> as you can. But you can only choose one box in each round.</p>
+                        <p class="text-slate-600 mb-8 max-w-2xl mx-auto">Each box will have a label on it, made up of a word and a number. <b>The number indicates the number of gems or stones inside the box.</b> So, for example, a box with a label “Shampoo (3)” will have three stones or three gems in it.</p>
+                    </div>`,
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Each gem is worth 1 point and stones will give you no points. If the number of points you have at the end of the game is within the top 30% of all players, you will get a $1 bonus.</p>
+                        <p class="text-slate-600 mb-8 max-w-2xl mx-auto">To help you, here is a piece of useful information: whenever the label is a fruit word, like “apples”, the box will always contain gems.</p>
+                    </div>`,
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-8 max-w-2xl mx-auto">There will be ${TOTAL_TRIALS_PART1} rounds in Part 1.</p>
+                    </div>`
+                ],
+                show_clickable_nav: true
+            };
+
+            let comprehension_failures_part1 = 0;
+
+            const comprehension_check_part1_1 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                    prompt: "My task is to: ",
+                    options: jsPsych.randomization.shuffle([
+                        'collect as many gems as possible',
+                        'collect as many things (stones and gems) as possible',
+                        'always choose the box with the longest label',
+                        'collect as many stones as possible'
+                    ]),
+                    required: true,
+                    name: 'comprehension_check_part1',
+                    }
+                ],
+                on_finish: function(data) {
+                    const correct_answer = 'collect as many gems as possible';
+                    const is_correct = data.response.comprehension_check_part1 === correct_answer;
+                    data.correct = is_correct;
+                }
+            };
+
+            const comprehension_check_part1_2 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                    prompt: "Which word category will always contain gems? ",
+                    options: jsPsych.randomization.shuffle([
+                        'Animals',
+                        'Vegetables',
+                        'Fruits',
+                        'Stationery'
+                    ]),
+                    required: true,
+                    name: 'comprehension_check_part1_2',
+                    }
+                ],
+                on_finish: function(data) {
+                    const correct_answer = 'Fruits';
+                    const is_correct = data.response.comprehension_check_part1_2 === correct_answer;
+                    data.correct = is_correct;
+                }
+            };
+
+            const feedback_node = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-red-600">That wasn't quite right. Please review the instructions carefully and try again.</p>
+                    </div>`
+                ],
+                show_clickable_nav: true,
+                button_label_next: "Try Again"
+            };
+            
+            const conditional_feedback = {
+                timeline: [feedback_node],
+                conditional_function: function() {
+                    const check_data = jsPsych.data.get().filter({trial_type: 'survey-multi-choice'}).last(2).values();
+                    return !check_data.every(trial => trial.correct);
+                }
+            };
+
+            const comprehension_loop_part1 = {
+                timeline: [instructions_part1, comprehension_check_part1_1, comprehension_check_part1_2, conditional_feedback],
+                loop_function: function() {
+                    const check_data = jsPsych.data.get().filter({trial_type: 'survey-multi-choice'}).last(2).values();
+                    const all_correct = check_data.every(trial => trial.correct);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part1++;
+                        if (comprehension_failures_part1 < 3) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+            };
+            
+            timeline.push(welcome_part1, comprehension_loop_part1);
+            
+            const leaderboard_screen = {
+                type: 'html-button-response',
+                stimulus: function() {
+                    let leaderboardHtml = `
+                        <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                            <h1 class="text-2xl md:text-3xl font-semibold mb-4 text-slate-700">Here are the points that our best participants earned:</h1>`;
+                    
+                    if (leaderboardData.length === 0) {
+                        leaderboardHtml += `<p class="text-slate-500 mt-8">You're one of the first to play. Be the first to set a high score!</p>`;
+                    } else {
+                        const topScores = leaderboardData.sort((a, b) => b.score - a.score).slice(0, 10);
+                        
+                        let tableRows = '';
+                        topScores.forEach((entry, index) => {
+                            tableRows += `
+                                <tr>
+                                    <td class="font-semibold text-slate-500">${index + 1}</td>
+                                    <td>${entry.playerId}</td>
+                                    <td class="font-semibold">${entry.score}</td>
+                                </tr>`;
+                        });
+
+                        leaderboardHtml += `
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Participant</th>
+                                        <th>Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows}
+                                </tbody>
+                            </table>`;
+                    }
+                    leaderboardHtml += `</div>`;
+                    return leaderboardHtml;
+                },
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors mt-6">Begin</button>'],
+                button_html: '%choice%',
+                
+                on_finish: function() {
+                    showScoreDisplay(); 
+                
+                },
+                
+                data: function() {
+                    return {
+                        comprehension_failures_part1: comprehension_failures_part1
+                    };
+                }
+            };
+            
+            timeline.push(leaderboard_screen);
+            
+            // Select where catch trial goes 
+            const allTrialIndices = Array.from(Array(TOTAL_TRIALS_PART1).keys());
+            const catchTrialIndices = jsPsych.randomization.sampleWithoutReplacement(allTrialIndices, NUM_CATCH_TRIALS);
+            
+
+            let numbers = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                let currentTrial = [
+                    getRandomInt(5) + 1,
+                    getRandomInt(5) + 1,
+                    getRandomInt(5) + 1
+                ];
+                numbers.push(currentTrial);
+            }
+            
+            let nounTriplets = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                const startIndex = i * 3;
+                let currentTriplet = shuffledNouns.slice(startIndex, startIndex + 3);
+                nounTriplets.push(currentTriplet);
+                };
+            
+            let possibleRewards;
+            if (rulecondition === 'right') {
+                possibleRewards = ['middle', 'left'];
+                } else if (rulecondition === 'middle') {
+                possibleRewards = ['right', 'left'];
+                } else { 
+                possibleRewards = ['middle', 'right'];
+                }
+
+            let rewardArray = [];
+
+            
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                let chosenReward = jsPsych.randomization.sampleWithoutReplacement(possibleRewards, 1)[0];
+                rewardArray.push(chosenReward);
+                }
+            
+            let fruitArray = jsPsych.randomization.sampleWithoutReplacement(shuffledFruits, NUM_CATCH_TRIALS)
+
+            let allTrials = [];
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                allTrials.push({
+                    numbers: numbers[i],
+                    stimuli: nounTriplets[i],
+                    reward_location: rewardArray[i],
+                    trial_type: 'normal' 
+                });
+            };
+
+            
+            const trialIndices = Array.from(Array(TOTAL_TRIALS_PART1).keys());
+            
+            const locationToIndex = {
+                'left': 0,
+                'middle': 1,
+                'right': 2
+            };
+ 
+        
+
+            catchTrialIndices.forEach((trialIndex, fruitIndex) => {
+                let trialToModify = allTrials[trialIndex];
+                let nounIndexToReplace = locationToIndex[trialToModify.reward_location];
+                let fruit = fruitArray[fruitIndex];
+                
+                trialToModify.stimuli[nounIndexToReplace] = fruit;
+                trialToModify.trial_type = 'catch';
+                
+            });
+
+            
+            
+
+            for (let i = 0; i < TOTAL_TRIALS_PART1; i++) {
+                
+                const trial_config = allTrials[i];
+
+                const interactive_trial = {
+                    type: 'html-keyboard-response',
+                    stimulus: `
+                        <div id="trial-container">
+                            <div class="feedback-text-container text-3xl font-medium"></div>
+
+                            <div class="progress-bar-container">
+                                <div class="w-full bg-slate-200 rounded-full h-2.5">
+                                    <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${((i + 1) / TOTAL_TRIALS_PART1) * 100}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="choices-container">
+                                <div class="grid grid-cols-3 gap-4 md:gap-8">
+                                    <div class="flex flex-col items-center">
+                                        <div class="stimulus-card" data-choice="0">
+                                            <p class="text-xl md:text-2xl font-semibold">${trial_config.stimuli[0]} (${trial_config.numbers[0]})</p>
+                                        </div>
+                                        <div class="image-container" id="image-container-0"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="stimulus-card" data-choice="1">
+                                            <p class="text-xl md:text-2xl font-semibold">${trial_config.stimuli[1]} (${trial_config.numbers[1]})</p>
+                                        </div>
+                                        <div class="image-container" id="image-container-1"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="stimulus-card" data-choice="2">
+                                            <p class="text-xl md:text-2xl font-semibold">${trial_config.stimuli[2]} (${trial_config.numbers[2]})</p>
+                                        </div>
+                                        <div class="image-container" id="image-container-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="continue-button-container w-full text-center">
+                                <button id="continue-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors" style="visibility: hidden;">Continue</button>
+                            </div>
+                        </div>
+                    `,
+                    choices: [], 
+                    data: {
+                        is_catch_trial: trial_config.trial_type === 'catch',
+                        trial_config: trial_config 
+                    },
+                    on_load: function() {
+                        const startTime = performance.now();
+                        const choices = document.querySelectorAll('.stimulus-card');
+
+                        const imageMap = {
+                            rubies: 'assets/ruby.png',
+                            emeralds: 'assets/emerald.png',
+                            stones: 'assets/stone.png'
+                        };
+                        
+                        function choiceHandler(event) {
+                            const rt = performance.now() - startTime;
+                            const choiceIndex = parseInt(event.currentTarget.dataset.choice);
+                            const clickedCard = event.currentTarget;
+                            const positions = ['left', 'middle', 'right'];
+                            const chosenPosition = positions[choiceIndex];
+
+                            choices.forEach(c => c.style.pointerEvents = 'none');
+
+                            const correctPosition = trial_config.reward_location;
+                            const isCorrect = chosenPosition === correctPosition;
+
+                            let feedbackText, feedbackColor, rewardType; 
+
+                            if (isCorrect) {
+                                if (correctPosition === rubyposition) {
+                                    rewardType = 'rubies';
+                                    feedbackColor = '#ef4444';
+                                } else {
+                                    rewardType = 'emeralds';
+                                    feedbackColor = '#22c55e';
+                                }
+                                
+                                feedbackText = `You earned ${trial_config.numbers[choiceIndex]} gems!`;
+                                
+                                clickedCard.classList.add('feedback-correct');
+                                clickedCard.style.borderColor = feedbackColor;
+
+                            } else {
+                                rewardType = 'stones'; 
+                                feedbackText = `Oh no, you got ${trial_config.numbers[choiceIndex]} stones`;
+                                feedbackColor = '#000000';
+                                clickedCard.classList.add('feedback-incorrect');
+                                clickedCard.style.borderColor = feedbackColor; 
+                            }
+                            
+                            const feedbackContainer = document.querySelector('.feedback-text-container');
+                            feedbackContainer.textContent = feedbackText;
+                            feedbackContainer.style.color = feedbackColor;
+
+                            const imgContainerClicked = document.getElementById(`image-container-${choiceIndex}`);
+                            const cardNumberClicked = trial_config.numbers[choiceIndex];
+                            const imgSrcClicked = imageMap[rewardType];
+                            for (let j = 0; j < cardNumberClicked; j++) {
+                                imgContainerClicked.innerHTML += `<img src="${imgSrcClicked}" alt="${rewardType}" class="h-12 w-12 my-1">`;
+                            }
+
+                            setTimeout(() => {
+                                choices.forEach((card, index) => {
+                                    const pos = positions[index];
+                                    if (pos === correctPosition) {
+                                        card.classList.add('feedback-correct');
+                                        
+                                        if (correctPosition === rubyposition) {
+                                            card.style.borderColor = '#ef4444'; 
+                                        } else {
+                                            card.style.borderColor = '#22c55e'; 
+                                        }
+
+                                    } else {
+                                        card.classList.add('feedback-incorrect');
+                                        card.style.borderColor = '#000000'; 
+                                    }
+
+                                    if (index !== choiceIndex) {
+                                        const imgContainer = document.getElementById(`image-container-${index}`);
+                                        const cardNumber = trial_config.numbers[index];
+                                        let imageType, imgSrc;
+
+                                        if (pos === correctPosition) {
+                                            imageType = (correctPosition === rubyposition) ? 'rubies' : 'emeralds';
+                                        } else {
+                                            imageType = 'stones';
+                                        }
+                                        
+                                        imgSrc = imageMap[imageType];
+                                        for (let j = 0; j < cardNumber; j++) {
+                                            imgContainer.innerHTML += `<img src="${imgSrc}" alt="${imageType}" class="h-12 w-12 my-1">`;
+                                        }
+                                    }
+                                });
+
+                                const continueBtn = document.getElementById('continue-btn');
+                                continueBtn.style.visibility = 'visible';
+                                
+                                continueBtn.onclick = () => {
+                                    if (isCorrect) {
+                                        cumulativeScore += trial_config.numbers[positions.indexOf(correctPosition)];
+                                    }
+                                    updateScoreDisplay(cumulativeScore);
+
+                                    const trial_data = {
+                                        phase: 'part1',
+                                        trial_index: i + 1,
+                                        is_catch_trial: trial_config.trial_type === 'catch',
+                                        rt: rt,
+                                        response: choiceIndex,
+                                        participant_response_position: chosenPosition,
+                                        left_word: trial_config.stimuli[0], left_number: trial_config.numbers[0],
+                                        middle_word: trial_config.stimuli[1], middle_number: trial_config.numbers[1],
+                                        right_word: trial_config.stimuli[2], right_number: trial_config.numbers[2],
+                                        correct_choice_position: correctPosition,
+                                        cumulative_score: cumulativeScore
+                                    };
+                                    jsPsych.finishTrial(trial_data);
+                                };
+                            }, 500);
+                        }
+                        choices.forEach(choice => {
+                            choice.addEventListener('click', choiceHandler);
+                        });
+                    } 
+                };
+                timeline.push(interactive_trial);
+            
+            }
+                    
+            const transition_screen = {
+                type: 'html-keyboard-response',
+                stimulus: `<div class="text-center bg-white p-8 rounded-lg shadow-lg"><h1 class="text-3xl font-bold mb-4">Part 1 Complete!</h1><p class="text-slate-600">Please wait for Part 2.</p></div>`,
+                choices: [],
+                trial_duration: 2500,
+                on_start: function() {
+                    hideScoreDisplay();
+                    jsPsych.data.addProperties(jatos.urlQueryParameters);
+                },
+                on_finish: function() {
+                    const all_data = jsPsych.data.get().values();
+                    const part1_trials = all_data.filter(trial => trial.phase === 'part1');
+
+                    const dataFromPart1 = part1_trials.map(data => ({
+                        trial_index: data.trial_index,
+                        choices: {
+                            left: { word: data.left_word, number: data.left_number },
+                            middle: { word: data.middle_word, number: data.middle_number },
+                            right: { word: data.right_word, number: data.right_number }
+                        },
+                        participant_response: data.participant_response_position
+                    }));
+
+                    const part2_timeline = [];
+
+                    part2_timeline.push(welcome_part2, comprehension_loop_part2);
+
+                    const score_update_screen = {
+                        type: 'html-button-response',
+                        stimulus: function() {
+                            return `
+                                <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                                    <h2 class="text-2xl md:text-3xl font-semibold mb-4 text-slate-700">Progress Update</h2>
+                                    <p class="text-slate-600 text-xl mb-6">Your current score is:</p>
+                                    <p class="text-5xl font-bold text-blue-600 mb-8">${cumulativeScore}</p>
+                                </div>
+                            `;
+                        },
+                        choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Continue</button>'],
+                        button_html: '%choice%',
+                    };
+
+                    dataFromPart1.forEach((trialData, i) => {
+                        const response_trial_p2 = {
+                            type: 'html-keyboard-response',
+                            stimulus: `
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 mb-6">
+                                    <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${((i + 1) / dataFromPart1.length) * 100}%"></div>
+                                </div>
+                                
+                                <div class="choices-container">
+                                    <div class="grid grid-cols-3 gap-4 md:gap-8">
+                                        <div class="flex flex-col items-center">
+                                            <div class="stimulus-card" data-choice="0">
+                                                <p class="text-xl md:text-2xl font-semibold">${trialData.choices.left.word} (${trialData.choices.left.number})</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col items-center">
+                                            <div class="stimulus-card" data-choice="1">
+                                                <p class="text-xl md:text-2xl font-semibold">${trialData.choices.middle.word} (${trialData.choices.middle.number})</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col items-center">
+                                            <div class="stimulus-card" data-choice="2">
+                                                <p class="text-xl md:text-2xl font-semibold">${trialData.choices.right.word} (${trialData.choices.right.number})</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `,
+                            choices: [],
+                            data: {
+                                phase: 'part2',
+                                trial_index_e2: i + 1,
+                                original_trial_data: trialData,
+                                correct_choice_position: trialData.participant_response
+                            },
+                                on_load: function() {
+                                    const startTime = performance.now();
+                                    const choices = document.querySelectorAll('.stimulus-card');
+
+                                    function choiceHandler(event) {
+                                        const rt = performance.now() - startTime;
+                                        const choiceIndex = parseInt(event.currentTarget.dataset.choice);
+                                        const positions = ['left', 'middle', 'right'];
+                                        const participant_response_position_e2 = positions[choiceIndex];
+                                        const is_consistent = (participant_response_position_e2 === trialData.participant_response);
+                                        
+                                        if (is_consistent) {
+                                            cumulativeScore += 3;
+                                        }
+
+                                        jsPsych.finishTrial({
+                                            participant_response_position_e2: participant_response_position_e2,
+                                            is_consistent: is_consistent,
+                                            cumulative_score: cumulativeScore,
+                                            response: choiceIndex,
+                                            rt: rt, 
+                                            stimulus: jsPsych.currentTrial().stimulus 
+                                        });
+                                    }
+                                    choices.forEach(choice => {
+                                        choice.addEventListener('click', choiceHandler);
+                                    });
+                                },
+                                on_finish: function(data) {
+                                    if (data.trial_index_e2 === 1) {
+                                        data.comprehension_failures_part2 = comprehension_failures_part2;
+                                    }
+                                }
+                            };
+                            
+                            part2_timeline.push(response_trial_p2);
+
+                            if ((i + 1) % 10 === 0 && (i + 1) < dataFromPart1.length) {
+                                part2_timeline.push(score_update_screen);
+                            }
+                        });
+
+                        part2_timeline.push(rule_check, worker_comments, end_screen);
+
+                        jsPsych.addNodeToEndOfTimeline({
+                            timeline: part2_timeline
+                        });
+                    }
+                };
+
+            timeline.push(transition_screen);
+            
+            const welcome_part2 = {
+                type: 'html-button-response',
+                stimulus: function() { return `
+                    <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">Well done, ${newPlayerId}. In Part 1, you collected ${cumulativeScore} gems. Each gem is worth one point, so you have <b>${cumulativeScore}</b> points in total. But in Part 2, you can earn more points, so pay close attention.</p>
+                    </div>`},
+                choices: ['<button class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Continue</button>'],
+                button_html: '%choice%',
+            };
+
+            const instructions_part2 = {
+                type: 'instructions',
+                pages: [
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">In Part 2, you will see exactly the same boxes as Part 1 in the same order.</p>
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto"><b>But here, your task is different. We want you to choose the same box you chose in Part 1.</b> It doesn't matter if it had points in it or not.</p>
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto"><b>For each time you choose the same box as you did in Part 1, you will earn 3 points.</b> Since there will be ${TOTAL_TRIALS_PART1} rounds, you can earn as much as ${TOTAL_TRIALS_PART1*3} points in this part.</p>
+                    </div>`,
+                    `<div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                        <p class="text-slate-600 mb-6 max-w-2xl mx-auto">This time we will not give you feedback about your decision, but once in every 10 trials, we will show you your total point count.</p>
+                    </div>`
+                ],
+                show_clickable_nav: true
+            };
+
+            let comprehension_failures_part2 = 0;
+
+            const comprehension_check_part2_1 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                    prompt: "My task in Part 2 is to: ",
+                    options: jsPsych.randomization.shuffle([
+                        'always choose a box that contains stones',
+                        'always choose the box with the largest number',
+                        'always choose the box that contains gems',
+                        'always choose the same box that I chose in Part 1'
+                    ]),
+                    required: true,
+                    name: 'comprehension_check_part2_1',
+                    }
+                ],
+                on_finish: function(data) {
+                    const correct_answer = 'always choose the same box that I chose in Part 1';
+                    const is_correct = data.response.comprehension_check_part2_1 === correct_answer;
+                    data.correct = is_correct;
+                }
+            };
+
+            const comprehension_check_part2_2 = {
+                type: 'survey-multi-choice',
+                questions: () => [
+                    {
+                    prompt: `If in Part 1 I chose the box labelled “glass (3)” but the gems were hidden in the box labelled “table (2)”, this time I should choose:`,
+                    options: [
+                        'the box labelled “glass (3)”',
+                        'the box labelled “table (2)”'
+                    ],
+                    required: true,
+                    name: 'comprehension_check_part2_2',
+                    }
+                ],
+                on_finish: function(data) {
+                    const correct_answer = 'the box labelled “glass (3)”';
+                    const is_correct = data.response.comprehension_check_part2_2 === correct_answer;
+                    data.correct = is_correct;
+                }
+            };
+
+            const conditional_feedback2 = {
+                timeline: [feedback_node],
+                conditional_function: function() {
+                    const check_data = jsPsych.data.get().filter({trial_type: 'survey-multi-choice'}).last(2).values();
+                    return !check_data.every(trial => trial.correct);
+                }
+            };
+
+            const comprehension_loop_part2 = {
+                timeline: [instructions_part2, comprehension_check_part2_1, comprehension_check_part2_2, conditional_feedback2],
+                loop_function: function() {
+                    const check_data = jsPsych.data.get().filter({trial_type: 'survey-multi-choice'}).last(2).values();
+                    const all_correct = check_data.every(trial => trial.correct);
+                    if (all_correct) {
+                        return false;
+                    } else {
+                        comprehension_failures_part2++;
+                        if (comprehension_failures_part2 < 3) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+            };
+
+            var rule_check = {
+                type: 'survey-html-form',
+                preamble: `
+                    <p class="jspsych-survey-html-form-prompt" style="margin-bottom: 10px; font-size: 1.125rem; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                        Have you noticed any regularity in the location of the gems? 
+                        <br>If yes, what was it? 
+                    </p>
+                `,
+                html: `
+                    <textarea 
+                        name="rule_check" 
+                        rows="8" 
+                        cols="60" 
+                        placeholder="if not, type na" 
+                        style="font-size: 14px; border: 1px solid #ccc; padding: 5px; border-radius: 4px;"
+                        required></textarea>
+                `,
+                on_finish: function(data) {
+                    data.rule_check = data.response.rule_check;
+                }
+            };
+            
+            var worker_comments = {
+                type: 'survey-html-form',
+                preamble: '<h1>Your Thoughts</h1>',
+                html: `
+                    <p class="jspsych-survey-html-form-prompt" style="margin-bottom: 10px;">
+                        That's it! We would appreciate if you could share 
+                        any thoughts you had about the experiment, or anything we should 
+                        take into account when analyzing your data.
+                    </p>
+                    <textarea 
+                        name="worker_comments" 
+                        rows="8" 
+                        cols="60" 
+                        placeholder="your comments here" 
+                        style="font-size: 14px; border: 1px solid #ccc; padding: 5px; border-radius: 4px;"
+                        >
+                    </textarea>
+                `,
+                on_finish: function(data) {
+                    data.worker_comments = data.response.worker_comments;
+                }
+            };
+
+            const end_screen = {
+                type: 'html-keyboard-response', 
+                stimulus: function() {
+                    let leaderboardHtml = '';
+                    if (leaderboardData.length === 0) {
+                        leaderboardHtml += `<p class="text-slate-500 mt-4">Be the first to set a high score!</p>`;
+                    } else {
+                        const topScores = leaderboardData.sort((a, b) => b.score - a.score).slice(0, 10);
+                        let tableRows = '';
+                        topScores.forEach((entry, index) => {
+                            tableRows += `
+                                <tr>
+                                    <td class="font-semibold text-slate-500">${index + 1}</td>
+                                    <td>${entry.playerId}</td>
+                                    <td class="font-semibold">${entry.score}</td>
+                                </tr>`;
+                        });
+                        leaderboardHtml += `
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Participant</th>
+                                        <th>Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows}
+                                </tbody>
+                            </table>`;
+                    }
+                    
+                    return `
+                        <div class="text-center bg-white p-8 rounded-lg shadow-lg max-w-3xl mx-auto">
+                            <h1 class="text-3xl md:text-4xl font-bold mb-4">Experiment Complete!</h1>
+                            <p class="text-slate-600 mb-6 text-xl">Thank you for your participation.</p>
+                            
+                            <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-md my-6">
+                                <p class="font-bold text-lg">Your Final Score</p>
+                                <p class="text-5xl font-bold">${cumulativeScore}</p>
+                            </div>
+
+                            <button id="end-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-colors mt-2 mb-8">Click here to end the experiment</button>
+
+                            <div class="bg-green-100 border-l-4 border-green-500 text-green-800 p-4 rounded-md my-6">
+                                <p class="font-bold text-lg">Bonus Payment</p>
+                                <p class="mt-1">If your score is in the top 30% of our full sample at the end of data collection, you will receive an additional $1 bonus payment.</p>
+                            </div>
+
+                            <h2 class="text-2xl font-semibold mt-8 mb-2 text-slate-700">Current High Scores</h2>
+                            ${leaderboardHtml}
+                        </div>`;
+                },
+                choices: jsPsych.NO_KEYS,
+                on_load: function() {
+                    hideScoreDisplay();
+                    try {
+                        jatos.batchSession.add(`/Bonuses/${newPlayerId}`, cumulativeScore)
+                            .catch(() => console.error("Batch Session synchronization failed"));
+                        jsPsych.data.addProperties({playerId: newPlayerId})
+                    } catch (error) {
+                        console.error("Failed to save score to leaderboard:", error);
+                    }
+                    document.getElementById('end-btn').addEventListener('click', () => {
+                        jsPsych.finishTrial();
+                    });
+                },
+                on_finish: function() {
+                    const all_results = jsPsych.data.get().csv();
+                    jatos.submitResultData(all_results, jatos.endStudy);
+                }
+            };
+            
+            // =======================================================================
+            // --- HELPER FUNCTIONS ---
+            // =======================================================================
+
+            function updateScoreDisplay(score) {
+                const scoreEl = document.getElementById('score-value');
+                if (scoreEl) {
+                    scoreEl.textContent = score;
+                }
+            }
+
+            function showScoreDisplay() {
+                const displayEl = document.getElementById('score-display');
+                if (displayEl) {
+                    displayEl.style.display = 'block';
+                }
+            }
+
+            function hideScoreDisplay() {
+                const displayEl = document.getElementById('score-display');
+                if (displayEl) {
+                    displayEl.style.display = 'none';
+                }
+            }
+
+            function getRandomInt(max) {
+                return Math.floor(Math.random() * max);
+                }
+
+            
+            
+            
+
+            return timeline; 
+        } 
+
+
+
+        
+jatos.onLoad(async function() {
+
+
+    var m = new MersenneTwister();
+    Math.random = function() { return m.random() };
+    
+    var protocol_sum = jatos.batchSession.get("protocol_sum") || "default_protocol_seed"; 
+    
+    
+    var subject_identifier = jatos.workerId ;
+    
+
+    function hexToBytes(hex) {
+    for (var bytes = [], c = 0; c < hex.length; c += 2)
+        bytes.push(parseInt(hex.substr(c, 2), 16));
+    return bytes;
+    }
+
+    var subject_sum = hexToBytes(
+        CryptoJS.SHA256(protocol_sum + subject_identifier).toString()
+    );
+    
+    m.init_by_array(subject_sum, subject_sum.length);
+    
+    jsPsych.data.addProperties({
+        'protocol_sum': protocol_sum,
+        'subject_identifier': subject_identifier,
+        'subject_sum': subject_sum
+    });
+        
+        const timeline = await makeTimeline();
+        
+        
+        jsPsych.init({
+            timeline: timeline,
+            display_element: 'jspsych-target',
+            on_finish: function() {
+                console.log("Main timeline finished. The rest of the experiment is injected.");
+            }
+        });
+
+    });
+    </script>
+</body>
+</html>

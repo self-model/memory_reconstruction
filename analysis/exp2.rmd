@@ -103,7 +103,7 @@ library(effsize)
 
 rm(list = ls())
 
-file_list <- '/Users/sawakeishiro/Desktop/code/reconstruction/data/Experiment2/experimen2_data.txt'
+file_list <- '.../data/Experiment2/experimen2_data.txt'
 
 raw_df <- map_dfr(file_list, function(file) {
 

@@ -92,7 +92,7 @@ We report how we determined our sample size, all data exclusions (if any), all m
 
 ## Procedure
 
-## Data analysis
+## Preregistered data analysis 
 We used `r cite_r("r-references.bib")` for all our analyses.
 ```{r loadformat, include = FALSE, cache=F}
 library(tidyverse)
@@ -211,6 +211,7 @@ phase_2_df <- raw_df %>%
     trial_num,
     response_position,
     is_consistent,
+    correct_choice_position,
     confidence,
     chose_gems,
     chose_onlystones,
@@ -379,7 +380,7 @@ phase_2_df <- phase_2_df %>%
 
 ```
 
-## phase 1 accuracy
+### phase 1 accuracy
 
 ```{r phase_1_and_2_accuracy,  cache=F, fig.width=8}
 # --- Define new bins for 50 trials ---
@@ -912,12 +913,6 @@ nr_h6_model <- glmer(chose_onlystones ~ 1 + (1 | subj_id),
                   control = glmerControl(optimizer = "bobyqa"))
 
 
-
-print("--- Full Model Summary ---")
-print(summary(h6_model))
-print(summary(r_h6_model))
-print(summary(nr_h6_model))
-
 ```
 
 In Part 2 trials in which the original decision revealed gems but participants made an error in reconstruction, the estimated probability of selecting the stones-only position was `r printnum(round(unname(1 / (1 + exp(-fixef(h6_model)))), 2))` (p `r printp(summary(h6_model)$coefficients[,"Pr(>|z|)"][1])`).
@@ -926,6 +921,80 @@ For participants who mentioned the rule the estimated probability of selecting t
 
 For participants who did not mention the rule, the estimated probability of selecting the stones-only position was `r printnum(round(unname(1 / (1 + exp(-fixef(nr_h6_model)))), 2))` (p `r printp(summary(nr_h6_model)$coefficients[,"Pr(>|z|)"][1])`).
 
+```{r probability,  cache=F, fig.width=8}
+
+
+# 1. Create the trial bins and summarize the data
+h6_viz_data <- is_not_consistent_chosegems_part1 %>%
+  
+  # First, create the 5 trial bins
+  mutate(
+    trial_bin = cut(
+      trial_num,
+      breaks = c(0, 10, 20, 30, 40, 50),
+      labels = c("1-10", "11-20", "21-30", "31-40", "41-50")
+    )
+  ) %>%
+  
+  # Now, group by the bins AND by the rule-mentioning group
+  group_by(trial_bin, mentioned_rule) %>%
+  
+  # Calculate the probability, count (for CI), and standard error
+  summarise(
+    n = n(),
+    prob_stones = mean(chose_onlystones, na.rm = TRUE),
+    se = sqrt(prob_stones * (1 - prob_stones) / n) # Std. Error of a proportion
+  ) %>%
+  
+  # Calculate 95% Confidence Intervals
+  mutate(
+    ci_lower = prob_stones - 1.96 * se,
+    ci_upper = prob_stones + 1.96 * se
+  ) %>%
+  
+  # Ungroup and also recode 'mentioned_rule' for a clearer plot legend
+  ungroup() %>%
+  mutate(
+    Group = ifelse(mentioned_rule, "Rule mentioned", "Rule not mentioned")
+  )
+
+# 2. Create the plot
+ggplot(h6_viz_data, aes(x = trial_bin, y = prob_stones, group = Group, color = Group)) +
+  
+  # Add the 50% null hypothesis line
+  geom_hline(
+    yintercept = 0.5,
+    linetype = "dashed",
+    color = "red",
+    linewidth = 1
+  ) +
+  
+  # Add error bars
+  geom_errorbar(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    width = 0.2,
+    alpha = 0.7
+  ) +
+  
+  # Add lines and points
+  geom_line(linewidth = 1.2, alpha = 0.7) +
+  geom_point(size = 3) +
+  
+  # Clean up labels and appearance
+  scale_y_continuous(
+    labels = scales::percent_format(),
+    limits = c(0, 1) # Set y-axis from 0% to 100%
+  ) +
+  labs(
+    title = "Hypothesis 6: Bias in Reconstruction Errors",
+    subtitle = "Trials where original choice revealed gems, but reconstruction was an error.",
+    x = "Trial Bin",
+    y = "Probability of Choosing Stones-Only Location",
+    color = "Participant Group" # Legend title
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
 
  
 ### Hypothesis 7 (CONFIDENCE: CORRECR VERSUS INCORRECT)
@@ -1122,77 +1191,7 @@ print(plot_nr)
 ```
 
 
-### Hypothesis 8.5 (CONFIDENCE: STONES VERSUS STONES ONLY)
-```{r hypothesis_8.5, include = FALSE, cache=F}
-otherstone_conf <- phase_2_df %>% 
-  group_by(subj_id) %>%
-  filter(!is_catch_trial, is_consistent, chose_other) %>%
-  summarise(mean_conf=mean(confidence),
-            median = median(confidence))
 
-r_otherstone_conf <- phase_2_df %>% 
-  group_by(subj_id) %>%
-  filter(!is_catch_trial, is_consistent, chose_other, mentioned_rule) %>%
-  summarise(mean_conf=mean(confidence),
-            median = median(confidence))
-
-nr_otherstone_conf <- phase_2_df %>% 
-  group_by(subj_id) %>%
-  filter(!is_catch_trial, is_consistent, chose_other, !mentioned_rule) %>%
-  summarise(mean_conf=mean(confidence),
-            median = median(confidence))
-
-
-onlystone_conf <- phase_2_df %>% 
-  group_by(subj_id) %>%
-  filter(!is_catch_trial, is_consistent, chose_onlystones) %>%
-  summarise(mean_conf=mean(confidence),
-            median = median(confidence))
-
-r_onlystone_conf <- phase_2_df %>% 
-  group_by(subj_id) %>%
-  filter(!is_catch_trial, is_consistent, chose_onlystones, mentioned_rule) %>%
-  summarise(mean_conf=mean(confidence),
-            median = median(confidence))
-
-nr_onlystone_conf <- phase_2_df %>% 
-  group_by(subj_id) %>%
-  filter(!is_catch_trial, is_consistent, chose_onlystones, !mentioned_rule) %>%
-  summarise(mean_conf=mean(confidence),
-            median = median(confidence))
-
-conf_df <- otherstone_conf %>%
-  rename(mean_conf_other = mean_conf, median_other = median) %>%
-  inner_join(
-    onlystone_conf %>%
-      rename(mean_conf_onlystone = mean_conf, median_onlystone = median),
-    by = "subj_id"
-  )
-
-r_conf_df <- r_otherstone_conf %>%
-  rename(mean_conf_other = mean_conf, median_other = median) %>%
-  inner_join(
-    r_onlystone_conf %>%
-      rename(mean_conf_onlystone = mean_conf, median_onlystone = median),
-    by = "subj_id"
-  )
-
-nr_conf_df <- nr_otherstone_conf %>%
-  rename(mean_conf_other = mean_conf, median_other = median) %>%
-  inner_join(
-    nr_onlystone_conf %>%
-      rename(mean_conf_onlystone = mean_conf, median_onlystone = median),
-    by = "subj_id"
-  )
-
-
-```
-
-In part 2, mean confidence when touching the stones only position on trials in which participants were correct was `r onlystone_conf$mean_conf %>%mean()%>%printnum()` (median=`r onlystone_conf$median%>%median()%>%printnum() `). In trials which they chose other stone position, it was `r otherstone_conf$mean_conf %>%mean()%>%printnum()` (median=`r  otherstone_conf$median%>%median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(conf_df$mean_conf_other, conf_df$mean_conf_onlystone, paired = TRUE))$statistic`).
-
-For participants who mentioned the rule, mean confidence when touching the stones only position on trials in which participants were correct was `r r_onlystone_conf$mean_conf %>%mean()%>%printnum()` (median=`r r_onlystone_conf$median%>%median()%>%printnum() `). In trials which they chose other stone position, it was `r r_otherstone_conf$mean_conf %>%mean()%>%printnum()` (median=`r  r_otherstone_conf$median%>%median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(r_conf_df$mean_conf_other, r_conf_df$mean_conf_onlystone, paired = TRUE))$statistic`).
-
-For participants who did not mention the rule, mean confidence when touching the stones only position on trials in which participants were correct was `r nr_onlystone_conf$mean_conf %>%mean()%>%printnum()` (median=`r nr_onlystone_conf$median%>%median()%>%printnum() `). In trials which they chose other stone position, it was `r nr_otherstone_conf$mean_conf %>%mean()%>%printnum()` (median=`r  nr_otherstone_conf$median%>%median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(nr_conf_df$mean_conf_other, nr_conf_df$mean_conf_onlystone, paired = TRUE))$statistic`).
 
 ### Hypothesis 10 (RT: CORRECT VERSUS INCORRECT (all trials))
 
@@ -1520,13 +1519,84 @@ print(rt_plot)
 ```
 
 
-### other analysis 
+## Exploratory analysis 
 
-#### estimates of own performance
+### Hypothesis 8.5 (CONFIDENCE: STONES VERSUS STONES ONLY)
+```{r hypothesis_8.5, include = FALSE, cache=F}
+otherstone_conf <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, chose_other) %>%
+  summarise(mean_conf=mean(confidence),
+            median = median(confidence))
+
+r_otherstone_conf <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, chose_other, mentioned_rule) %>%
+  summarise(mean_conf=mean(confidence),
+            median = median(confidence))
+
+nr_otherstone_conf <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, chose_other, !mentioned_rule) %>%
+  summarise(mean_conf=mean(confidence),
+            median = median(confidence))
 
 
+onlystone_conf <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, chose_onlystones) %>%
+  summarise(mean_conf=mean(confidence),
+            median = median(confidence))
 
-```{r extra, include = FALSE, cache=F}
+r_onlystone_conf <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, chose_onlystones, mentioned_rule) %>%
+  summarise(mean_conf=mean(confidence),
+            median = median(confidence))
+
+nr_onlystone_conf <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, chose_onlystones, !mentioned_rule) %>%
+  summarise(mean_conf=mean(confidence),
+            median = median(confidence))
+
+conf_df <- otherstone_conf %>%
+  rename(mean_conf_other = mean_conf, median_other = median) %>%
+  inner_join(
+    onlystone_conf %>%
+      rename(mean_conf_onlystone = mean_conf, median_onlystone = median),
+    by = "subj_id"
+  )
+
+r_conf_df <- r_otherstone_conf %>%
+  rename(mean_conf_other = mean_conf, median_other = median) %>%
+  inner_join(
+    r_onlystone_conf %>%
+      rename(mean_conf_onlystone = mean_conf, median_onlystone = median),
+    by = "subj_id"
+  )
+
+nr_conf_df <- nr_otherstone_conf %>%
+  rename(mean_conf_other = mean_conf, median_other = median) %>%
+  inner_join(
+    nr_onlystone_conf %>%
+      rename(mean_conf_onlystone = mean_conf, median_onlystone = median),
+    by = "subj_id"
+  )
+
+
+```
+
+In part 2, mean confidence when touching the stones only position on trials in which participants were correct was `r onlystone_conf$mean_conf %>%mean()%>%printnum()` (median=`r onlystone_conf$median%>%median()%>%printnum() `). In trials which they chose other stone position, it was `r otherstone_conf$mean_conf %>%mean()%>%printnum()` (median=`r  otherstone_conf$median%>%median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(conf_df$mean_conf_other, conf_df$mean_conf_onlystone, paired = TRUE))$statistic`).
+
+For participants who mentioned the rule, mean confidence when touching the stones only position on trials in which participants were correct was `r r_onlystone_conf$mean_conf %>%mean()%>%printnum()` (median=`r r_onlystone_conf$median%>%median()%>%printnum() `). In trials which they chose other stone position, it was `r r_otherstone_conf$mean_conf %>%mean()%>%printnum()` (median=`r  r_otherstone_conf$median%>%median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(r_conf_df$mean_conf_other, r_conf_df$mean_conf_onlystone, paired = TRUE))$statistic`).
+
+For participants who did not mention the rule, mean confidence when touching the stones only position on trials in which participants were correct was `r nr_onlystone_conf$mean_conf %>%mean()%>%printnum()` (median=`r nr_onlystone_conf$median%>%median()%>%printnum() `). In trials which they chose other stone position, it was `r nr_otherstone_conf$mean_conf %>%mean()%>%printnum()` (median=`r  nr_otherstone_conf$median%>%median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(nr_conf_df$mean_conf_other, nr_conf_df$mean_conf_onlystone, paired = TRUE))$statistic`).
+
+### estimates of own performance
+
+
+```{r correlation, include = FALSE, cache=F}
 ## Correlation between estimate and actual performance 
 # part 1
 
@@ -1633,9 +1703,61 @@ print(combined_plot)
 ```
 
 
+### Effect of numbers on choice
+
+```{r higherorlower, include = FALSE, cache=F}
+
+higher_df <- phase_2_df %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    higher = case_when(
+      response_position == "middle" & correct_choice_position == "left"  ~ middle_number > right_number,
+      response_position == "middle" & correct_choice_position == "right" ~ middle_number > left_number,
+      
+      response_position == "right" & correct_choice_position == "left"   ~ right_number > middle_number,
+      response_position == "right" & correct_choice_position == "middle" ~ right_number > left_number,
+      
+      response_position == "left" & correct_choice_position == "middle" ~ left_number > right_number,
+      response_position == "left" & correct_choice_position == "right"  ~ left_number > middle_number,
+      
+      # Default case (e.g., if a condition wasn't met, or if you had a TRUE ~ FALSE)
+      # This will result in NA if no condition is met, which is fine.
+      TRUE ~ NA
+    )
+  ) %>%
+  # --- ADDED FILTER STEP ---
+  # This filters the dataframe to *only* include rows where the
+  # two relevant non-correct numbers were NOT equal.
+  filter(
+    case_when(
+      response_position == "middle" & correct_choice_position == "left"  ~ middle_number != right_number,
+      response_position == "middle" & correct_choice_position == "right" ~ middle_number != left_number,
+      
+      response_position == "right" & correct_choice_position == "left"   ~ right_number != middle_number,
+      response_position == "right" & correct_choice_position == "middle" ~ right_number != left_number,
+      
+      response_position == "left" & correct_choice_position == "middle" ~ left_number != right_number,
+      response_position == "left" & correct_choice_position == "right"  ~ left_number != middle_number,
+      
+      # This default drops any rows that didn't match the logic above
+      # (e.g., rows that resulted in NA for 'higher').
+      TRUE ~ FALSE
+    )
+  )
 
 
 
+participant_summary <- higher_df %>%
+  group_by(subj_id) %>%
+  summarise(
+    prop_higher = mean(higher, na.rm = TRUE)
+  )
+
+
+```
+
+When participants were inaccurate in part 2, the mean probability for the participant to choose the option with a greater number was `r higher_df %>% ungroup() %>% summarise(mean=mean(higher)) %>% pull(mean) %>% printnum()`. This was significantly less than chance (`r apa_print(t.test(participant_summary$prop_higher,mu = 0.5,alternative = "two.sided"))$statistic`). 
 
 # Results
 

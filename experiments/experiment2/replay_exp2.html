@@ -323,47 +323,45 @@
                     }
             
             function drawBoxes() {
-                for (const box of boxes) {
-    
-                    p.push();
-                    p.strokeWeight(3);
-                    let border_color = colors.box_default;
-                    let show_content = false;
-                    const is_correct_box = (box.position === trial.correct_choice_position);
-                    const is_chosen_box = (box.position === trial.response_position);
+                    for (const box of boxes) {
+                        p.push();
+                        p.strokeWeight(3);
+                        let border_color = colors.box_default;
+                        let show_content = false;
+                        const is_correct_box = (box.position === trial.correct_choice_position);
+                        const is_chosen_box = (box.position === trial.response_position);
 
-                    if (phase === 'part1') {
-                        if (state === 'feedback' && is_chosen_box) {
-                            border_color = getBorderColor(trial.response_position === trial.correct_choice_position);
-                            show_content = true;
-                        }
-                        if (state === 'finished') {
+                        if (phase === 'part1') {
+                            if (state === 'feedback' && is_chosen_box) {
+                                border_color = getBorderColor(trial.response_position === trial.correct_choice_position);
+                                show_content = true;
+                            }
+                            if (state === 'finished') {
+                                border_color = getBorderColor(is_correct_box);
+                                show_content = true;
+                            }
+                        } else if (phase === 'part2') {
                             border_color = getBorderColor(is_correct_box);
-                            show_content = true;
+                            show_content = false;
                         }
-                    } else if (phase === 'part2') {
-                        
-                        if (trial.is_show_trial) {
-                            border_color = getBorderColor(is_correct_box);
-                        }
-                        
-                        show_content = false;
-                    }
 
-                    p.stroke(border_color); p.fill(colors.box_default); p.rect(box.x, box.y, box.w, box.h);
-                    p.noStroke(); p.fill(colors.text); p.textAlign(p.CENTER, p.CENTER);
-                    p.textSize(24); p.textStyle(p.BOLD);
-                    p.text(box.word, box.x + box.w / 2, box.y + box.h / 2 - 14);
-                    p.text(`(${box.number})`, box.x + box.w / 2, box.y + box.h / 2 + 14); p.pop();
-                    
-                    
-                    if (show_content) {
-                        const is_correct = (box.position === trial.correct_choice_position);
-                        let img_to_draw = is_correct ? ((box.position === trial.rubyposition) ? images.ruby : images.emerald) : images.stone;
-                        drawBoxContent(box, img_to_draw);
+                        p.stroke(border_color); p.fill(colors.box_default); p.rect(box.x, box.y, box.w, box.h);
+                        p.noStroke(); p.fill(colors.text); p.textAlign(p.CENTER, p.CENTER);
+                        p.textSize(24); p.textStyle(p.BOLD);
+                        p.text(box.word, box.x + box.w / 2, box.y + box.h / 2 - 14);
+                        p.text(`(${box.number})`, box.x + box.w / 2, box.y + box.h / 2 + 14); p.pop();
+
+                        if (show_content) {
+                            const is_correct = (box.position === trial.correct_choice_position);
+                            let img_to_draw;
+                            if (is_correct) {
+                                img_to_draw = (box.position === trial.rubyposition) ? images.ruby : images.emerald;
+                            } else {
+                                img_to_draw = images.stone;
+                            }
+                            drawBoxContent(box, img_to_draw);
+                        }
                     }
-                }
-            }
             function getBorderColor(is_correct) {
                 if (is_correct) { return (trial.correct_choice_position === trial.rubyposition) ? colors.feedback_ruby : colors.feedback_emerald; }
                 return colors.feedback_incorrect;

@@ -18,8 +18,13 @@
 
         <div class="control-panel grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             <div>
-                <label for="jsonFile" class="block text-sm font-medium text-gray-700">Load Data File</label>
-                <input type="file" id="jsonFile" accept=".json" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <label for="dataFileSelect" class="block text-sm font-medium text-gray-700">Select Data File</label>
+                <select id="dataFileSelect"
+                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                    <option value="" disabled selected>-- Load a file --</option>
+                    <option value="../../data/experiment2/mouse_tracking_1.json">mouse_tracking_1.json</option>
+                    <option value="../../data/experiment2/mouse_tracking_2.json">mouse_tracking_2.json</option>
+                </select>
             </div>
             <div>
                 <label for="subjectSelect" class="block text-sm font-medium text-gray-700">Subject ID</label>
@@ -47,7 +52,7 @@
 
     let experimentData = null;
     let sketchInstance = null;
-    const fileInput = document.getElementById('jsonFile');
+    const dataFileSelect = document.getElementById('dataFileSelect'); 
     const subjectSelect = document.getElementById('subjectSelect');
     const phaseSelect = document.getElementById('phaseSelect');
     const trialSelect = document.getElementById('trialSelect');
@@ -55,10 +60,43 @@
     const autoplayCheckbox = document.getElementById('autoplayCheckbox');
 
 
-    fileInput.addEventListener('change', handleFileLoad);
+    dataFileSelect.addEventListener('change', loadSelectedData); 
     subjectSelect.addEventListener('change', populatePhases);
     phaseSelect.addEventListener('change', populateTrials);
     playButton.addEventListener('click', playSelectedTrial);
+
+    async function loadSelectedData() {
+            const filePath = dataFileSelect.value;
+            if (!filePath) return;
+
+            // Disable UI while loading
+            playButton.disabled = true;
+            playButton.textContent = 'Loading...';
+            subjectSelect.disabled = true;
+            phaseSelect.disabled = true;
+            trialSelect.disabled = true;
+
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                experimentData = await response.json();
+                
+                // Success! Populate the UI
+                populateSubjects();
+                playButton.disabled = false;
+                playButton.textContent = 'Play Trial';
+                subjectSelect.disabled = false;
+                phaseSelect.disabled = false;
+                trialSelect.disabled = false;
+
+            } catch (error) {
+                alert(`Error loading data file: ${filePath}\n\nCheck the path and make sure the file is on the server.\nError: ${error.message}`);
+                console.error(error);
+                playButton.textContent = 'Load Error';
+            }
+        }
 
     function handleFileLoad(event) {
         const reader = new FileReader();

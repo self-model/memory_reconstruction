@@ -347,6 +347,13 @@
 
                         p.stroke(border_color); p.fill(colors.box_default); p.rect(box.x, box.y, box.w, box.h);
                         p.noStroke(); p.fill(colors.text); p.textAlign(p.CENTER, p.CENTER);
+
+                        if (is_correct_box) {
+                            p.fill(colors.feedback_ruby); 
+                        } else {
+                            p.fill(colors.text); 
+                        }
+                        
                         p.textSize(24); p.textStyle(p.BOLD);
                         p.text(box.word, box.x + box.w / 2, box.y + box.h / 2 - 14);
                         p.text(`(${box.number})`, box.x + box.w / 2, box.y + box.h / 2 + 14); p.pop();

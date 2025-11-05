@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Mouse Movement Playback</title>
@@ -7,10 +8,20 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .control-panel { background: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .control-panel {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
     </style>
 </head>
+
 <body class="p-8">
 
     <div class="max-w-4xl mx-auto">
@@ -28,19 +39,25 @@
             </div>
             <div>
                 <label for="subjectSelect" class="block text-sm font-medium text-gray-700">Subject ID</label>
-                <select id="subjectSelect" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                <select id="subjectSelect"
+                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
             </div>
             <div>
                 <label for="phaseSelect" class="block text-sm font-medium text-gray-700">Phase</label>
-                <select id="phaseSelect" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                <select id="phaseSelect"
+                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
             </div>
             <div>
                 <label for="trialSelect" class="block text-sm font-medium text-gray-700">Trial Number</label>
-                <select id="trialSelect" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                <select id="trialSelect"
+                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
             </div>
-            <button id="playButton" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors disabled:bg-gray-400" disabled>Play Trial</button>
+            <button id="playButton"
+                class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                disabled>Play Trial</button>
             <div class="md:col-span-5 flex items-center mt-2">
-                <input type="checkbox" id="autoplayCheckbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <input type="checkbox" id="autoplayCheckbox"
+                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                 <label for="autoplayCheckbox" class="ml-2 block text-sm text-gray-900">Autoplay next trial</label>
             </div>
         </div>
@@ -48,24 +65,24 @@
         <div id="p5-canvas-holder" class="mt-8 bg-white shadow-lg rounded-lg" style="width:100%; height:80vh;"></div>
     </div>
 
-<script>
+    <script>
 
-    let experimentData = null;
-    let sketchInstance = null;
-    const dataFileSelect = document.getElementById('dataFileSelect'); 
-    const subjectSelect = document.getElementById('subjectSelect');
-    const phaseSelect = document.getElementById('phaseSelect');
-    const trialSelect = document.getElementById('trialSelect');
-    const playButton = document.getElementById('playButton');
-    const autoplayCheckbox = document.getElementById('autoplayCheckbox');
+        let experimentData = null;
+        let sketchInstance = null;
+        const dataFileSelect = document.getElementById('dataFileSelect');
+        const subjectSelect = document.getElementById('subjectSelect');
+        const phaseSelect = document.getElementById('phaseSelect');
+        const trialSelect = document.getElementById('trialSelect');
+        const playButton = document.getElementById('playButton');
+        const autoplayCheckbox = document.getElementById('autoplayCheckbox');
 
 
-    dataFileSelect.addEventListener('change', loadSelectedData); 
-    subjectSelect.addEventListener('change', populatePhases);
-    phaseSelect.addEventListener('change', populateTrials);
-    playButton.addEventListener('click', playSelectedTrial);
+        dataFileSelect.addEventListener('change', loadSelectedData);
+        subjectSelect.addEventListener('change', populatePhases);
+        phaseSelect.addEventListener('change', populateTrials);
+        playButton.addEventListener('click', playSelectedTrial);
 
-    async function loadSelectedData() {
+        async function loadSelectedData() {
             const filePath = dataFileSelect.value;
             if (!filePath) return;
 
@@ -82,7 +99,7 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 experimentData = await response.json();
-                
+
                 // Success! Populate the UI
                 populateSubjects();
                 playButton.disabled = false;
@@ -98,238 +115,238 @@
             }
         }
 
-    function handleFileLoad(event) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                experimentData = JSON.parse(e.target.result);
-                populateSubjects();
-                playButton.disabled = false;
-            } catch (error) {
-                alert('Error parsing JSON file.'); console.error(error);
-            }
-        };
-        reader.readAsText(event.target.files[0]);
-    }
-
-    function populateSubjects() {
-        subjectSelect.innerHTML = '';
-        Object.keys(experimentData).forEach(id => subjectSelect.add(new Option(id, id)));
-        populatePhases();
-    }
-
-    function populatePhases() {
-        phaseSelect.innerHTML = '';
-        const subj = subjectSelect.value;
-        Object.keys(experimentData[subj]).forEach(phase => phaseSelect.add(new Option(phase, phase)));
-        populateTrials();
-    }
-
-    function populateTrials() {
-        trialSelect.innerHTML = '';
-        const subj = subjectSelect.value;
-        const phase = phaseSelect.value;
-        if (!experimentData[subj] || !experimentData[subj][phase]) return; // Safety check
-        
-        Object.keys(experimentData[subj][phase]).forEach(num => {
-            if (!num.endsWith('_confidence')) {
-                trialSelect.add(new Option(num, num));
-            }
-        });
-    }
-
-    function playNextMainTrial() {
-        if (!autoplayCheckbox.checked) return; 
-
-        const currentIndex = trialSelect.selectedIndex;
-        const nextIndex = currentIndex + 1;
-
-        if (nextIndex < trialSelect.options.length) {
-            trialSelect.selectedIndex = nextIndex; 
-            playSelectedTrial(); 
-        } else {
-            console.log("Autoplay finished: Last trial in phase.");
-        }
-    }
-
-
-    function playSelectedTrial() {
-        if (sketchInstance) sketchInstance.remove();
-
-        const selectedSubj = subjectSelect.value;
-        const selectedPhase = phaseSelect.value;
-        const selectedTrial = trialSelect.value; // This will be "1", "2", etc.
-        
-        
-        const trialData = experimentData[selectedSubj][selectedPhase][selectedTrial];
-        
-        if (!trialData) {
-            alert(`Error: Could not find data for trial ${selectedTrial}.`);
-            return;
+        function handleFileLoad(event) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    experimentData = JSON.parse(e.target.result);
+                    populateSubjects();
+                    playButton.disabled = false;
+                } catch (error) {
+                    alert('Error parsing JSON file.'); console.error(error);
+                }
+            };
+            reader.readAsText(event.target.files[0]);
         }
 
-        const onSequenceFinish = () => {
-            playNextMainTrial();
-        };
+        function populateSubjects() {
+            subjectSelect.innerHTML = '';
+            Object.keys(experimentData).forEach(id => subjectSelect.add(new Option(id, id)));
+            populatePhases();
+        }
 
+        function populatePhases() {
+            phaseSelect.innerHTML = '';
+            const subj = subjectSelect.value;
+            Object.keys(experimentData[subj]).forEach(phase => phaseSelect.add(new Option(phase, phase)));
+            populateTrials();
+        }
 
-        const onBoxFinish = () => {
-            const confidenceTrialKey = selectedTrial + "_confidence";
-            const confidenceTrialData = experimentData[selectedSubj][selectedPhase][confidenceTrialKey];
+        function populateTrials() {
+            trialSelect.innerHTML = '';
+            const subj = subjectSelect.value;
+            const phase = phaseSelect.value;
+            if (!experimentData[subj] || !experimentData[subj][phase]) return; // Safety check
 
-            if (selectedPhase === 'part2' && confidenceTrialData) {
-                if (sketchInstance) sketchInstance.remove();
-                sketchInstance = new p5(p5_playback_sketch_slider(confidenceTrialData, onSequenceFinish));
+            Object.keys(experimentData[subj][phase]).forEach(num => {
+                if (!num.endsWith('_confidence')) {
+                    trialSelect.add(new Option(num, num));
+                }
+            });
+        }
+
+        function playNextMainTrial() {
+            if (!autoplayCheckbox.checked) return;
+
+            const currentIndex = trialSelect.selectedIndex;
+            const nextIndex = currentIndex + 1;
+
+            if (nextIndex < trialSelect.options.length) {
+                trialSelect.selectedIndex = nextIndex;
+                playSelectedTrial();
             } else {
-                onSequenceFinish();
+                console.log("Autoplay finished: Last trial in phase.");
             }
-        };
-
-
-        if (trialData.trial_type === 'testmouse') {
-            sketchInstance = new p5(p5_playback_sketch_boxes(trialData, selectedPhase, onBoxFinish));
-            
-        } else {
-            alert(`Selected trial is not a main 'testmouse' trial: ${selectedTrial}`);
         }
-    }
 
-    function p5_playback_sketch_boxes(trial, phase, onFinish) {
-        return function(p) {
-            let startTime, boxes = [], elapsedTime = 0, images = {};
-            let state = 'waiting'; 
-            let continue_button_dims;
-            const feedback_duration = 500;
-            const finished_duration = 2000;
 
-            
-            const colors = {
-                background: p.color(241, 245, 249), box_default: p.color(255),
-                text: p.color(51, 65, 85), progress_bar_bg: p.color(226, 232, 240),
-                progress_bar_fill: p.color(37, 99, 235), cursor: p.color(239, 68, 68, 200),
-                feedback_ruby: p.color(239, 68, 68),
-                feedback_emerald: p.color(34, 197, 94),
-                feedback_incorrect: p.color(0)
-            };
-            const box_width = 180, box_height = 120, total_width = 540 + 64, gap = (total_width - 3 * box_width) / 2;
-            
+        function playSelectedTrial() {
+            if (sketchInstance) sketchInstance.remove();
 
-            p.preload = function() {
-                images.ruby = p.loadImage('assets/ruby.png');
-                images.emerald = p.loadImage('assets/emerald.png');
-                images.stone = p.loadImage('assets/stone.png');
+            const selectedSubj = subjectSelect.value;
+            const selectedPhase = phaseSelect.value;
+            const selectedTrial = trialSelect.value; // This will be "1", "2", etc.
 
-                images.ruby.onerror = () => images.ruby = p.createImage(48, 48);
-                images.emerald.onerror = () => images.emerald = p.createImage(48, 48);
-                images.stone.onerror = () => images.stone = p.createImage(48, 48);
-            };
 
-            p.setup = function() {
-                const canvasHolder = document.getElementById('p5-canvas-holder');
-                p.createCanvas(canvasHolder.clientWidth, canvasHolder.clientHeight).parent('p5-canvas-holder');
-                p.textFont('Inter');
-                p.frameRate(60);
-                setupStimuli();
-                startTime = p.millis();
-            };
+            const trialData = experimentData[selectedSubj][selectedPhase][selectedTrial];
 
-            function setupStimuli() {
-                const start_x = (p.width - total_width) / 2;
-                const y = p.height / 3;
-                const words = [trial.left_word, trial.middle_word, trial.right_word];
-                const numbers = [trial.left_number, trial.middle_number, trial.right_number]; 
-                const positions = ['left', 'middle', 'right'];
-                continue_button_dims = { x: p.width / 2 - 75, y: y + box_height + 250, w: 150, h: 50 };
-                for (let i = 0; i < 3; i++) {
-                    boxes.push({ x: start_x + i * (box_width + gap), y, w: box_width, h: box_height, word: words[i], number: numbers[i], position: positions[i] });
-                }
+            if (!trialData) {
+                alert(`Error: Could not find data for trial ${selectedTrial}.`);
+                return;
             }
 
-            p.draw = function() {
-                elapsedTime = p.millis() - startTime;
-                p.background(colors.background);
+            const onSequenceFinish = () => {
+                playNextMainTrial();
+            };
 
-                if (state === 'waiting') {
-                    if (phase === 'part1' && trial.rt && elapsedTime >= trial.rt) {
-                        state = 'feedback';
-                    } else if (phase === 'part2' && trial.rt && elapsedTime >= trial.rt) {
-                        state = 'ended';
-                        p.noLoop();
-                        if (onFinish) onFinish();
-                    }
-                } else if (state === 'feedback') {
-                    if (trial.rt && elapsedTime >= trial.rt + feedback_duration) {
-                        state = 'finished';
-                    }
-                } else if (state === 'finished') {
-                    if (trial.rt && elapsedTime >= trial.rt + feedback_duration + finished_duration) {
-                        state = 'ended';
-                        p.noLoop();
-                        if (onFinish) onFinish();
-                    }
-                }
-                
-                const trialProgress = (trialSelect.selectedIndex + 1) / trialSelect.options.length;
-                
-                drawProgressBar(trialProgress);
-                drawBoxes();
-                
-                if (phase === 'part1' && (state === 'feedback' || state === 'finished')) {
-                    drawFeedbackText();
-                }
-                
-                if (phase === 'part1' && state === 'finished') {
-                    drawContinueButton();
-                }
-                
-                let currentIndex = -1;
-                if (trial.t && trial.t.length > 0) {
-                    for (let i = 0; i < trial.t.length; i++) {
-                        if (trial.t[i] <= elapsedTime) currentIndex = i;
-                        else break;
-                    }
-                    if (currentIndex !== -1) {
-                        const pos = universal_coordinates_to_screen_coordinates(trial.mouse_universal_x[currentIndex], trial.mouse_universal_y[currentIndex]);
 
-                        
-                        let cursorSize = 20; // Normal size
-                        if (elapsedTime >= trial.rt && elapsedTime < trial.rt + 200) {
-                            cursorSize = 40; 
+            const onBoxFinish = () => {
+                const confidenceTrialKey = selectedTrial + "_confidence";
+                const confidenceTrialData = experimentData[selectedSubj][selectedPhase][confidenceTrialKey];
+
+                if (selectedPhase === 'part2' && confidenceTrialData) {
+                    if (sketchInstance) sketchInstance.remove();
+                    sketchInstance = new p5(p5_playback_sketch_slider(confidenceTrialData, onSequenceFinish));
+                } else {
+                    onSequenceFinish();
+                }
+            };
+
+
+            if (trialData.trial_type === 'testmouse') {
+                sketchInstance = new p5(p5_playback_sketch_boxes(trialData, selectedPhase, onBoxFinish));
+
+            } else {
+                alert(`Selected trial is not a main 'testmouse' trial: ${selectedTrial}`);
+            }
+        }
+
+        function p5_playback_sketch_boxes(trial, phase, onFinish) {
+            return function (p) {
+                let startTime, boxes = [], elapsedTime = 0, images = {};
+                let state = 'waiting';
+                let continue_button_dims;
+                const feedback_duration = 500;
+                const finished_duration = 2000;
+
+
+                const colors = {
+                    background: p.color(241, 245, 249), box_default: p.color(255),
+                    text: p.color(51, 65, 85), progress_bar_bg: p.color(226, 232, 240),
+                    progress_bar_fill: p.color(37, 99, 235), cursor: p.color(239, 68, 68, 200),
+                    feedback_ruby: p.color(239, 68, 68),
+                    feedback_emerald: p.color(34, 197, 94),
+                    feedback_incorrect: p.color(0)
+                };
+                const box_width = 180, box_height = 120, total_width = 540 + 64, gap = (total_width - 3 * box_width) / 2;
+
+
+                p.preload = function () {
+                    images.ruby = p.loadImage('assets/ruby.png');
+                    images.emerald = p.loadImage('assets/emerald.png');
+                    images.stone = p.loadImage('assets/stone.png');
+
+                    images.ruby.onerror = () => images.ruby = p.createImage(48, 48);
+                    images.emerald.onerror = () => images.emerald = p.createImage(48, 48);
+                    images.stone.onerror = () => images.stone = p.createImage(48, 48);
+                };
+
+                p.setup = function () {
+                    const canvasHolder = document.getElementById('p5-canvas-holder');
+                    p.createCanvas(canvasHolder.clientWidth, canvasHolder.clientHeight).parent('p5-canvas-holder');
+                    p.textFont('Inter');
+                    p.frameRate(60);
+                    setupStimuli();
+                    startTime = p.millis();
+                };
+
+                function setupStimuli() {
+                    const start_x = (p.width - total_width) / 2;
+                    const y = p.height / 3;
+                    const words = [trial.left_word, trial.middle_word, trial.right_word];
+                    const numbers = [trial.left_number, trial.middle_number, trial.right_number];
+                    const positions = ['left', 'middle', 'right'];
+                    continue_button_dims = { x: p.width / 2 - 75, y: y + box_height + 250, w: 150, h: 50 };
+                    for (let i = 0; i < 3; i++) {
+                        boxes.push({ x: start_x + i * (box_width + gap), y, w: box_width, h: box_height, word: words[i], number: numbers[i], position: positions[i] });
+                    }
+                }
+
+                p.draw = function () {
+                    elapsedTime = p.millis() - startTime;
+                    p.background(colors.background);
+
+                    if (state === 'waiting') {
+                        if (phase === 'part1' && trial.rt && elapsedTime >= trial.rt) {
+                            state = 'feedback';
+                        } else if (phase === 'part2' && trial.rt && elapsedTime >= trial.rt) {
+                            state = 'ended';
+                            p.noLoop();
+                            if (onFinish) onFinish();
                         }
-                        
-                        p.push();
-                        p.noStroke();
-                        p.fill(colors.cursor);
-                        p.ellipse(pos.x, pos.y, cursorSize, cursorSize);
-                        p.pop();
+                    } else if (state === 'feedback') {
+                        if (trial.rt && elapsedTime >= trial.rt + feedback_duration) {
+                            state = 'finished';
+                        }
+                    } else if (state === 'finished') {
+                        if (trial.rt && elapsedTime >= trial.rt + feedback_duration + finished_duration) {
+                            state = 'ended';
+                            p.noLoop();
+                            if (onFinish) onFinish();
+                        }
                     }
-                    
-                }
-            };
 
-           
-            function universal_coordinates_to_screen_coordinates(uni_x, uni_y) {
-                const leftBox = boxes[0]; if (!leftBox) return { x: 0, y: 0 };
-                const screenX = uni_x * (box_width * 3 + gap) + leftBox.x;
-                const screenY = uni_y * box_height + leftBox.y;
-                return { x: screenX, y: screenY };
-            }
-            function drawProgressBar(trialProgress) {
-                        const bar_width = 604;
-                        const bar_height = 10;
-                        const x = (p.width - bar_width) / 2;
-                        const y = p.height / 3 - 80;
-                        
-                        p.push();
-                        p.noStroke();
-                        p.fill(colors.progress_bar_bg);
-                        p.rect(x, y, bar_width, bar_height, 5);
-                        p.fill(colors.progress_bar_fill);
-                        p.rect(x, y, bar_width * trialProgress, bar_height, 5);
-                        p.pop();
+                    const trialProgress = (trialSelect.selectedIndex + 1) / trialSelect.options.length;
+
+                    drawProgressBar(trialProgress);
+                    drawBoxes();
+
+                    if (phase === 'part1' && (state === 'feedback' || state === 'finished')) {
+                        drawFeedbackText();
                     }
-            
-            function drawBoxes() {
+
+                    if (phase === 'part1' && state === 'finished') {
+                        drawContinueButton();
+                    }
+
+                    let currentIndex = -1;
+                    if (trial.t && trial.t.length > 0) {
+                        for (let i = 0; i < trial.t.length; i++) {
+                            if (trial.t[i] <= elapsedTime) currentIndex = i;
+                            else break;
+                        }
+                        if (currentIndex !== -1) {
+                            const pos = universal_coordinates_to_screen_coordinates(trial.mouse_universal_x[currentIndex], trial.mouse_universal_y[currentIndex]);
+
+
+                            let cursorSize = 20; // Normal size
+                            if (elapsedTime >= trial.rt && elapsedTime < trial.rt + 200) {
+                                cursorSize = 40;
+                            }
+
+                            p.push();
+                            p.noStroke();
+                            p.fill(colors.cursor);
+                            p.ellipse(pos.x, pos.y, cursorSize, cursorSize);
+                            p.pop();
+                        }
+
+                    }
+                };
+
+
+                function universal_coordinates_to_screen_coordinates(uni_x, uni_y) {
+                    const leftBox = boxes[0]; if (!leftBox) return { x: 0, y: 0 };
+                    const screenX = uni_x * (box_width * 3 + gap) + leftBox.x;
+                    const screenY = uni_y * box_height + leftBox.y;
+                    return { x: screenX, y: screenY };
+                }
+                function drawProgressBar(trialProgress) {
+                    const bar_width = 604;
+                    const bar_height = 10;
+                    const x = (p.width - bar_width) / 2;
+                    const y = p.height / 3 - 80;
+
+                    p.push();
+                    p.noStroke();
+                    p.fill(colors.progress_bar_bg);
+                    p.rect(x, y, bar_width, bar_height, 5);
+                    p.fill(colors.progress_bar_fill);
+                    p.rect(x, y, bar_width * trialProgress, bar_height, 5);
+                    p.pop();
+                }
+
+                function drawBoxes() {
                     for (const box of boxes) {
                         p.push();
                         p.strokeWeight(3);
@@ -357,13 +374,13 @@
 
                         if (phase === 'part2') {
                             if (is_correct_box) {
-                            p.fill(colors.feedback_ruby); 
-                        } else {
-                            p.fill(colors.text); 
-                        }
+                                p.fill(colors.feedback_ruby);
+                            } else {
+                                p.fill(colors.text);
+                            }
                         }
-                        
-                        
+
+
                         p.textSize(24); p.textStyle(p.BOLD);
                         p.text(box.word, box.x + box.w / 2, box.y + box.h / 2 - 14);
                         p.text(`(${box.number})`, box.x + box.w / 2, box.y + box.h / 2 + 14); p.pop();
@@ -379,129 +396,131 @@
                             drawBoxContent(box, img_to_draw);
                         }
                     }
-            function getBorderColor(is_correct) {
-                if (is_correct) { return (trial.correct_choice_position === trial.rubyposition) ? colors.feedback_ruby : colors.feedback_emerald; }
-                return colors.feedback_incorrect;
-            }
-            function drawFeedbackText() {
-                const chosenBox = boxes.find(b => b.position === trial.response_position); if (!chosenBox) return;
-                const is_correct = trial.response_position === trial.correct_choice_position;
-                let txt = is_correct ? `You earned ${chosenBox.number} gems!` : `Oh no, you got ${chosenBox.number} stones`;
-                let txt_color = getBorderColor(is_correct);
-                p.push(); p.noStroke(); p.fill(txt_color); p.textSize(28); p.textAlign(p.CENTER, p.TOP);
-                p.text(txt, p.width / 2, p.height / 3 - 40); p.pop();
-            }
-            function drawBoxContent(box, img) {
-                if (!img || !img.width) return; const img_size = 48;
-                const img_y_start = box.y + box.h + 5;
-                for (let i = 0; i < box.number; i++) {
-                    p.image(img, box.x + box.w / 2 - img_size / 2, img_y_start + i * (img_size * 0.8), img_size, img_size);
                 }
-            }
 
-            function drawContinueButton() {
-                
-                p.push();
-                p.fill(colors.progress_bar_fill);
-                p.noStroke();
-                p.rect(continue_button_dims.x, continue_button_dims.y, continue_button_dims.w, continue_button_dims.h, 5);
-                p.fill(255);
-                p.textSize(18);
-                p.textAlign(p.CENTER, p.CENTER);
-                p.text("Continue", continue_button_dims.x + continue_button_dims.w / 2, continue_button_dims.y + continue_button_dims.h / 2);
-                p.pop();
-            }
-
-            
-        };
-    }}
-
-    
-    function p5_playback_sketch_slider(trial, onFinish) {
-        return function(p) {
-            let startTime, elapsedTime = 0;
-            const colors = {
-                background: p.color(241, 245, 249), line: p.color(0),
-                text: p.color(51, 65, 85), cursor: p.color(239, 68, 68, 200),
-                
-            };
-            let top_y, bottom_y, scale_x;
-
-            p.setup = function() {
-                const canvasHolder = document.getElementById('p5-canvas-holder');
-                p.createCanvas(canvasHolder.clientWidth, canvasHolder.clientHeight).parent('p5-canvas-holder');
-                p.textFont('Inter');
-                p.frameRate(60);
-                top_y = p.height / 4;
-                bottom_y = p.height * 3 / 4;
-                scale_x = p.width / 2;
-                startTime = p.millis();
-            };
-
-            p.draw = function() {
-                elapsedTime = p.millis() - startTime;
-                p.background(colors.background);
-                drawSliderUI();
-                let currentIndex = -1;
-                if (trial.t && trial.t.length > 0) {
-                    for (let i = 0; i < trial.t.length; i++) {
-                        if (trial.t[i] <= elapsedTime) currentIndex = i;
-                        else break;
+                function getBorderColor(is_correct) {
+                    if (is_correct) { return (trial.correct_choice_position === trial.rubyposition) ? colors.feedback_ruby : colors.feedback_emerald; }
+                    return colors.feedback_incorrect;
+                }
+                function drawFeedbackText() {
+                    const chosenBox = boxes.find(b => b.position === trial.response_position); if (!chosenBox) return;
+                    const is_correct = trial.response_position === trial.correct_choice_position;
+                    let txt = is_correct ? `You earned ${chosenBox.number} gems!` : `Oh no, you got ${chosenBox.number} stones`;
+                    let txt_color = getBorderColor(is_correct);
+                    p.push(); p.noStroke(); p.fill(txt_color); p.textSize(28); p.textAlign(p.CENTER, p.TOP);
+                    p.text(txt, p.width / 2, p.height / 3 - 40); p.pop();
+                }
+                function drawBoxContent(box, img) {
+                    if (!img || !img.width) return; const img_size = 48;
+                    const img_y_start = box.y + box.h + 5;
+                    for (let i = 0; i < box.number; i++) {
+                        p.image(img, box.x + box.w / 2 - img_size / 2, img_y_start + i * (img_size * 0.8), img_size, img_size);
                     }
-                    if (currentIndex !== -1) {
-                        const pos = universal_coordinates_to_screen_coordinates(trial.mouse_universal_x[currentIndex], trial.mouse_universal_y[currentIndex]);
-                        
-                        
-                        const dial_size = 20;
-                        
-                        p.push();
-                        p.stroke(0);
-                        p.strokeWeight(0.5);
-                        p.fill(255);
-                        const dial_y = p.max(p.min(pos.y, bottom_y), top_y);
-                        p.ellipse(scale_x, dial_y, dial_size, dial_size); 
-                        p.pop();
+                }
+
+                function drawContinueButton() {
+
+                    p.push();
+                    p.fill(colors.progress_bar_fill);
+                    p.noStroke();
+                    p.rect(continue_button_dims.x, continue_button_dims.y, continue_button_dims.w, continue_button_dims.h, 5);
+                    p.fill(255);
+                    p.textSize(18);
+                    p.textAlign(p.CENTER, p.CENTER);
+                    p.text("Continue", continue_button_dims.x + continue_button_dims.w / 2, continue_button_dims.y + continue_button_dims.h / 2);
+                    p.pop();
+                }
 
 
-                        
-                        let cursorSize = 20; 
-                        if (elapsedTime >= trial.rt && elapsedTime < trial.rt + 200) {
-                            cursorSize = 40; 
+            };
+        }
+
+
+
+        function p5_playback_sketch_slider(trial, onFinish) {
+            return function (p) {
+                let startTime, elapsedTime = 0;
+                const colors = {
+                    background: p.color(241, 245, 249), line: p.color(0),
+                    text: p.color(51, 65, 85), cursor: p.color(239, 68, 68, 200),
+
+                };
+                let top_y, bottom_y, scale_x;
+
+                p.setup = function () {
+                    const canvasHolder = document.getElementById('p5-canvas-holder');
+                    p.createCanvas(canvasHolder.clientWidth, canvasHolder.clientHeight).parent('p5-canvas-holder');
+                    p.textFont('Inter');
+                    p.frameRate(60);
+                    top_y = p.height / 4;
+                    bottom_y = p.height * 3 / 4;
+                    scale_x = p.width / 2;
+                    startTime = p.millis();
+                };
+
+                p.draw = function () {
+                    elapsedTime = p.millis() - startTime;
+                    p.background(colors.background);
+                    drawSliderUI();
+                    let currentIndex = -1;
+                    if (trial.t && trial.t.length > 0) {
+                        for (let i = 0; i < trial.t.length; i++) {
+                            if (trial.t[i] <= elapsedTime) currentIndex = i;
+                            else break;
                         }
-                        
-                        
-                        p.push();
-                        p.noStroke();
-                        p.fill(colors.cursor);
-                        p.ellipse(pos.x, pos.y, cursorSize, cursorSize);
-                        p.pop();
+                        if (currentIndex !== -1) {
+                            const pos = universal_coordinates_to_screen_coordinates(trial.mouse_universal_x[currentIndex], trial.mouse_universal_y[currentIndex]);
+
+
+                            const dial_size = 20;
+
+                            p.push();
+                            p.stroke(0);
+                            p.strokeWeight(0.5);
+                            p.fill(255);
+                            const dial_y = p.max(p.min(pos.y, bottom_y), top_y);
+                            p.ellipse(scale_x, dial_y, dial_size, dial_size);
+                            p.pop();
+
+
+
+                            let cursorSize = 20;
+                            if (elapsedTime >= trial.rt && elapsedTime < trial.rt + 200) {
+                                cursorSize = 40;
+                            }
+
+
+                            p.push();
+                            p.noStroke();
+                            p.fill(colors.cursor);
+                            p.ellipse(pos.x, pos.y, cursorSize, cursorSize);
+                            p.pop();
+                        }
+                        if (elapsedTime > trial.t[trial.t.length - 1] + 2000) {
+                            p.noLoop();
+                            if (onFinish) onFinish(); // Trigger the next trial
+                        };
                     }
-                    if (elapsedTime > trial.t[trial.t.length - 1] + 2000) {
-                        p.noLoop();
-                        if (onFinish) onFinish(); // Trigger the next trial
-                    };
+                };
+
+                function drawSliderUI() {
+                    p.push(); p.textAlign(p.CENTER, p.BOTTOM); p.textSize(24);
+                    p.noStroke(); p.fill(colors.text);
+                    p.pop(); p.push(); p.stroke(colors.line); p.strokeWeight(4);
+                    p.line(scale_x, top_y, scale_x, bottom_y); p.pop();
+                    p.push(); p.textAlign(p.LEFT, p.CENTER); p.textSize(20);
+                    p.noStroke(); p.fill(colors.text); p.text('Fully confident', scale_x + 30, top_y);
+                    p.text('Fully guessing', scale_x + 30, bottom_y); p.pop();
+                }
+                function universal_coordinates_to_screen_coordinates(uni_x, uni_y) {
+                    const slider_height = bottom_y - top_y;
+                    const screenY = uni_y * slider_height + top_y;
+                    const screenX = uni_x * slider_height + (scale_x - slider_height / 2);
+                    return { x: screenX, y: screenY };
                 }
             };
-            
-            function drawSliderUI() {
-                p.push(); p.textAlign(p.CENTER, p.BOTTOM); p.textSize(24);
-                p.noStroke(); p.fill(colors.text);
-                p.pop(); p.push(); p.stroke(colors.line); p.strokeWeight(4);
-                p.line(scale_x, top_y, scale_x, bottom_y); p.pop();
-                p.push(); p.textAlign(p.LEFT, p.CENTER); p.textSize(20);
-                p.noStroke(); p.fill(colors.text); p.text('Fully confident', scale_x + 30, top_y);
-                p.text('Fully guessing', scale_x + 30, bottom_y); p.pop();
-            }
-            function universal_coordinates_to_screen_coordinates(uni_x, uni_y) {
-                const slider_height = bottom_y - top_y;
-                const screenY = uni_y * slider_height + top_y;
-                const screenX = uni_x * slider_height + (scale_x - slider_height / 2);
-                return { x: screenX, y: screenY };
-            }
-        };
-    }
-</script>
+        }
+    </script>
 </body>
+
 </html>
-
-

@@ -478,7 +478,7 @@
             
             function drawSliderUI() {
                 p.push(); p.textAlign(p.CENTER, p.BOTTOM); p.textSize(24);
-                p.noStroke(); p.fill(colors.text); p.text("How confident were you in your last choice?", p.width / 2, top_y - 40);
+                p.noStroke(); p.fill(colors.text);
                 p.pop(); p.push(); p.stroke(colors.line); p.strokeWeight(4);
                 p.line(scale_x, top_y, scale_x, bottom_y); p.pop();
                 p.push(); p.textAlign(p.LEFT, p.CENTER); p.textSize(20);

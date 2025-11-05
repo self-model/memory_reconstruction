@@ -200,6 +200,7 @@
             let state = 'waiting'; 
             let continue_button_dims;
             const feedback_duration = 500;
+            const finished_duration = 2000;
 
             
             const colors = {
@@ -248,15 +249,24 @@
                 elapsedTime = p.millis() - startTime;
                 p.background(colors.background);
 
-                if (phase === 'part1') {
-                    if (state === 'waiting' && trial.rt && elapsedTime >= trial.rt) {
+                if (state === 'waiting') {
+                    if (phase === 'part1' && trial.rt && elapsedTime >= trial.rt) {
                         state = 'feedback';
+                    } else if (phase === 'part2' && trial.rt && elapsedTime >= trial.rt) {
+                        state = 'ended';
+                        p.noLoop();
+                        if (onFinish) onFinish();
                     }
-                    if (state === 'feedback' && trial.rt && elapsedTime >= trial.rt + feedback_duration) {
+                } else if (state === 'feedback') {
+                    if (trial.rt && elapsedTime >= trial.rt + feedback_duration) {
                         state = 'finished';
                     }
-                } else if (phase === 'part2' && state === 'waiting' && trial.rt && elapsedTime >= trial.rt) {
-                    state = 'finished';
+                } else if (state === 'finished') {
+                    if (trial.rt && elapsedTime >= trial.rt + feedback_duration + finished_duration) {
+                        state = 'ended';
+                        p.noLoop();
+                        if (onFinish) onFinish();
+                    }
                 }
                 
                 const trialProgress = (trialSelect.selectedIndex + 1) / trialSelect.options.length;
@@ -293,10 +303,7 @@
                         p.ellipse(pos.x, pos.y, cursorSize, cursorSize);
                         p.pop();
                     }
-                    if (elapsedTime > trial.t[trial.t.length - 1] + 2000) {
-                        p.noLoop();
-                        if (onFinish) onFinish(); 
-                    };
+                    
                 }
             };
 

@@ -352,7 +352,7 @@
                         p.strokeWeight(3);
                         let border_color = colors.box_default;
                         let show_content = false;
-                        const is_correct_box = trial.correct_choice_position;
+                        const is_correct_box = (box.position === trial.correct_choice_position);
                         const is_chosen_box = (box.position === trial.response_position);
 
                         if (phase === 'part1') {
@@ -373,7 +373,7 @@
                         p.noStroke(); p.fill(colors.text); p.textAlign(p.CENTER, p.CENTER);
 
                         if (phase === 'part2') {
-                            if (is_correct_box) {
+                            if (is_chosen_box) {
                                 p.fill(colors.feedback_ruby);
                             } else {
                                 p.fill(colors.text);

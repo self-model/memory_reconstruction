@@ -352,7 +352,7 @@
                         p.strokeWeight(3);
                         let border_color = colors.box_default;
                         let show_content = false;
-                        const is_correct_box = (box.position === trial.correct_choice_position);
+                        const is_correct_box = trial.correct_choice_position;
                         const is_chosen_box = (box.position === trial.response_position);
 
                         if (phase === 'part1') {

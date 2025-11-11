@@ -23,3 +23,7 @@
   Experiment 1: experiments/experiment1/experiment.html
   
   Experiment 2: experiments/experiment2/experiment.html
+
+## Replay 
+
+ You can replay participants' mouse movements at this [link](https://self-model.github.io/memory_reconstruction/experiments/experiment2/replay_exp2.html) 

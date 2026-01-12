@@ -27,7 +27,18 @@
     <div class="max-w-4xl mx-auto">
         <h1 class="text-3xl font-bold mb-4 text-slate-700">Memory Reconstruction Playback</h1>
 
+        
+
         <div class="control-panel grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div>
+                <label for="replaySelect" class="block text-sm font-medium text-gray-700">Replay</label>
+                <select id="replaySelect"
+                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
+                    <option value="" selected>-- Select replay --</option>
+                    <option value="replay_exp2.html">Experiment 2 - Show Gems</option>
+                    <option value="../../experiments/experiment3/replay_exp3.html">Experiment 3 - Computer</option>
+                </select>
+            </div>
             <div>
                 <label for="dataFileSelect" class="block text-sm font-medium text-gray-700">Select Data File</label>
                 <select id="dataFileSelect"
@@ -66,7 +77,15 @@
     </div>
 
     <script>
-
+        
+        const replaySelect = document.getElementById('replaySelect');
+        replaySelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (!val) return;
+            // navigate to the chosen replay page (same folder)
+            window.location.href = val;
+        });
+        
         let experimentData = null;
         let sketchInstance = null;
         const dataFileSelect = document.getElementById('dataFileSelect');

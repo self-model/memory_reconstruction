@@ -814,7 +814,7 @@ score_for_this_trial = Number(trial.current_score) || 0;
                             )[0] || null;
                         }
 
-                        console.log("correct_choice_position": trial.correct_choice_position, "stoneposition": trial.stoneposition)
+                    
 
 
                         if (phase === 'part1') {
@@ -892,11 +892,11 @@ score_for_this_trial = Number(trial.current_score) || 0;
                         p.noStroke();
                         p.textAlign(p.CENTER, p.CENTER);
                         let textFill = colors.text;
-                        if (phase === 'part2' && is_part1_chosen_box) textFill = colors.feedback_ruby;
+                        if (phase === 'part2' && box.position === trial.part1_response_position) textFill = colors.feedback_ruby;
 
-                        if (phase === 'part2' && box.position === inferred_computer_position) {
-                            textFill = colors.outline_blue;
-                        }
+                        if (phase === 'part2' && box.position === trial.computer_response_position_p1) textFill = colors.outline_blue;
+
+                                
 
                         p.fill(textFill);
                         p.textSize(24);

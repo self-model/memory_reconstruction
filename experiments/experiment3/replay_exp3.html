@@ -810,8 +810,11 @@ score_for_this_trial = Number(trial.current_score) || 0;
                             inferred_computer_position = allPositions.filter(pos =>
                                 pos !== trial.correct_choice_position &&
                                 pos !== trial.stoneposition
+        
                             )[0] || null;
                         }
+
+                        console.log("correct_choice_position": trial.correct_choice_position, "stoneposition": trial.stoneposition)
 
 
                         if (phase === 'part1') {

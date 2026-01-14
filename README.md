@@ -11,11 +11,15 @@
   
   Data for experiment 2 can be found in: data/experiment2/experimen2_data.txt.zip
 
+  Data for experiment 3 can be found in: data/experiment3/experimen3_data.txt.zip
+
  ## Analysis Scripts
  
   Analysis for experiment 1 can be found in: analysis/Exp. 1.Rmd
   
   Analysis for experiment 2 can be found in: analysis/exp2.Rmd
+
+  Analysis for experiment 3 can be found in: analysis/exp3.Rmd
 
 
  ## Experiment Scripts
@@ -23,6 +27,8 @@
   Experiment 1: experiments/experiment1/experiment.html
   
   Experiment 2: experiments/experiment2/experiment.html
+
+  Experiment 3: experiments/experiment3/experiment.html
 
 ## Replay 
 

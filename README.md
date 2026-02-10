@@ -15,11 +15,11 @@
 
  ## Analysis Scripts
  
-  Analysis for experiment 1 can be found in: analysis/Exp. 1.Rmd
+  Analysis for experiment 1 can be found in: analysis/exp1_standardised.Rmd
   
-  Analysis for experiment 2 can be found in: analysis/exp2.Rmd
+  Analysis for experiment 2 can be found in: analysis/exp2_standardised.Rmd
 
-  Analysis for experiment 3 can be found in: analysis/exp3.Rmd
+  Analysis for experiment 3 can be found in: analysis/exp3_standardised.Rmd
 
 
  ## Experiment Scripts

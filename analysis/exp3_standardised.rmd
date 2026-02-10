@@ -1,0 +1,3467 @@
+---
+title: "Experiment 3: results"
+output: word_document
+date: "think it was 2025"
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+r_refs("r-references.bib")
+
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja',
+    'tidyverse'
+  ), "2025-06-01"
+)
+
+r_refs("r-references.bib")
+
+knitr::opts_chunk$set(warning=F,echo=F,message=F,cache=T)
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+
+
+# Methods
+We report how we determined our sample size, all data exclusions (if any), all manipulations, and all measures in the study. <!-- 21-word solution (Simmons, Nelson & Simonsohn, 2012; retrieved from http://ssrn.com/abstract=2160588) -->
+
+## Participants
+
+## Material
+
+## Procedure
+
+## Preregistered data analysis 
+We used `r cite_r("r-references.bib")` for all our analyses.
+```{r loadformat, include = FALSE, cache=F}
+library(tidyverse)
+library(stringr)
+library(effsize)
+
+file_list <- '.../data/experiment3/experiment3_data.txt'
+
+raw_df <- map_dfr(file_list, function(file) {
+
+  lines <- readLines(file)
+  starts <- which(grepl('^"?\\s*success', lines))
+  starts <- c(starts, length(lines) + 1)
+  chunks <- map2(starts[-length(starts)], starts[-1] - 1, ~ lines[.x:.y])
+  map_dfr(chunks, ~ read_csv(
+      paste(.x, collapse = "\n"),
+      show_col_types = FALSE,
+      col_types = cols(.default = "c") 
+    ))  %>%
+    mutate(
+      subj_id = PROLIFIC_PID,
+      is_catch_trial = as.logical(is_catch_trial),
+      is_show_trial = as.logical(is_show_trial),
+      response = as.numeric(response),
+      chose_gems = as.logical(chose_gems),
+      chose_onlystones = as.logical(chose_onlystones),
+      chose_other = as.logical(chose_other),
+      left_number = as.numeric(left_number),
+      middle_number = as.numeric(middle_number),
+      right_number = as.numeric(right_number),
+      cumulative_score = as.numeric(cumulative_score),
+      is_consistent = as.logical(is_consistent),
+      is_consistent_computer = as.logical(is_consistent_computer),
+      trial_num = as.numeric(trial_num),
+      rt = as.numeric(rt),
+      choice_rt = as.numeric(choice_rt),
+      reveal_rt = as.numeric(reveal_rt),
+      confidence_rt = as.numeric(confidence_rt),
+      comprehension_failures_part1 = as.numeric(comprehension_failures_part1),
+      comprehension_failures_part2_1 = as.numeric(comprehension_failures_part2_1),
+      comprehension_failures_part2_2 = as.numeric(comprehension_failures_part2_2),
+      comprehension_failures_part2_3 = as.numeric(comprehension_failures_part2_3),
+      comprehension_failures_part2_4 = as.numeric(comprehension_failures_part2_4),
+      confidence = as.numeric(confidence),
+      rule_check = as.character(rule_check),
+      worker_comments = as.character(worker_comments),
+      number_correct_part1 = as.numeric(number_correct_part1_slider),
+      number_correct_part1_computer = as.numeric(number_correct_part1_computer_slider),
+      number_correct_part2 = as.numeric(number_correct_part2_slider),
+      computer_chose_gems = as.logical(computer_chose_gems),
+      computer_chose_onlystones = as.logical(computer_chose_onlystones),
+      computer_chose_other =as.logical(computer_chose_other)
+    )
+})
+
+comments_sparse_df <- raw_df %>%
+  dplyr::select(subj_id, rule_check, worker_comments, number_correct_part1, number_correct_part2) %>%
+  dplyr::filter(!is.na(worker_comments) | !is.na(rule_check) | !is.na(number_correct_part1) | !is.na(number_correct_part2))
+
+comments_clean_df <- comments_sparse_df %>%
+  group_by(subj_id) %>%
+  summarise(
+    rule_check = first(na.omit(rule_check)),
+    worker_comments = first(na.omit(worker_comments)),
+    number_correct_part1 = first(na.omit(number_correct_part1)),
+    number_correct_part2 = first(na.omit(number_correct_part2)),
+    .groups = 'drop' 
+  )
+
+print(head(comments_clean_df))
+
+write.csv(comments_clean_df, 'comments_exp3_clean.csv', row.names = FALSE)
+
+# Process data for Phase 1
+phase_1_df <- raw_df %>%
+  filter(phase == 'part1') %>%
+  dplyr::select(
+    subj_id,
+    trial_num,
+    left_word,
+    left_number,
+    middle_word, 
+    middle_number,
+    right_word, 
+    right_number, 
+    chose_gems,
+    chose_onlystones,
+    chose_other,
+    response_position,
+    correct_choice_position,
+    response_position,
+    computer_chose_gems,
+    computer_chose_onlystones,
+    computer_chose_other,
+    is_catch_trial, 
+    is_show_trial,
+    stoneposition,
+    emeraldposition,
+    rt,
+    choice_rt,
+    reveal_rt,
+    comprehension_failures_part1,
+    number_correct_part1,
+    computer_response_position,
+    number_correct_part1_computer) %>%
+  group_by(subj_id) %>%
+  arrange(trial_num) 
+
+write.csv(raw_df, 'raw_df.csv')
+phase_2_df <- raw_df %>%
+  filter(phase == 'part2') %>%
+  dplyr::select(
+    subj_id, 
+    trial_num,
+    is_consistent,
+    is_consistent_computer,
+    correct_choice_position,
+    confidence,
+    chose_gems,
+    chose_onlystones,
+    chose_other,
+    rt,
+    choice_rt,
+    confidence_rt,
+    is_catch_trial,
+    is_show_trial,
+    stoneposition,
+    emeraldposition,
+    left_word,
+    left_number,
+    middle_word, 
+    middle_number,
+    right_word, 
+    right_number, 
+    comprehension_failures_part2_1,
+    comprehension_failures_part2_2,
+    comprehension_failures_part2_3,
+    comprehension_failures_part2_4,
+    number_correct_part2,
+    response_position
+  ) %>%
+  group_by(subj_id) %>%
+  arrange(trial_num)  %>%
+  filter(!is.na(is_consistent)) 
+
+for_merge_phase_1_df <- phase_1_df %>%
+  select(subj_id, trial_num, computer_response_position, part1_response_position = response_position) 
+
+phase_2_df <- phase_2_df %>%
+  left_join(for_merge_phase_1_df, by=c("subj_id", "trial_num")) %>%
+  mutate(
+    computer_response_position_p1 = computer_response_position,
+    part1_response_position = part1_response_position
+  ) %>%
+    select(!computer_response_position, !response_position)
+
+#excluding participants
+
+total_participants_before <- length(unique(phase_1_df$subj_id))
+cat("Total number of participants before exclusion:", total_participants_before)
+
+exclude_catch <- phase_1_df %>%
+  group_by(subj_id) %>%
+  summarise(
+    n_failed_catch = sum(!chose_gems[is_catch_trial == TRUE], na.rm = TRUE),)%>%
+  filter(n_failed_catch >= 2) %>%
+  pull(subj_id)
+
+exclude_part1_rt <- phase_1_df %>%
+  group_by(subj_id) %>%
+  summarise(
+  first_quartile_rt = quantile(rt, probs = 0.25, na.rm = TRUE))%>%
+  filter(first_quartile_rt < 100 ) %>%
+  pull(subj_id)
+
+exclude_part2_rt <- phase_2_df %>%
+  group_by(subj_id) %>%
+  summarise(
+    first_quartile_rt = quantile(rt, probs = 0.25, na.rm = TRUE)) %>%
+  filter( first_quartile_rt < 100 ) %>%
+  pull(subj_id)
+
+exclude_part2_confidence_rt <- phase_2_df %>%
+  group_by(subj_id) %>%
+  summarise(
+    first_quantile_rt = quantile(confidence_rt, probs = 0.25, na.rm = TRUE)
+  ) %>%
+  filter(first_quantile_rt < 100) %>%
+  pull(subj_id)
+  
+
+exclude_comprehension <- raw_df %>%
+  filter(comprehension_failures_part1 >= 2 | comprehension_failures_part2_1 >= 2 |  comprehension_failures_part2_2 >= 2| comprehension_failures_part2_3 >= 2| comprehension_failures_part2_4 >= 2) %>%
+  distinct(subj_id) %>%
+  pull(subj_id)
+
+
+participants_to_exclude <- unique(c(exclude_catch,
+                                    exclude_part1_rt, 
+                                    exclude_part2_rt, 
+                                    exclude_part2_confidence_rt,
+                                    exclude_comprehension))
+
+
+cat("Number of participants to exclude:", length(participants_to_exclude), "\n")
+if (length(participants_to_exclude) > 0) {
+  cat("Excluding participants:", paste(participants_to_exclude, collapse=", "), "\n")
+}
+
+
+
+phase_1_df <- phase_1_df %>%
+  filter(!(subj_id %in% participants_to_exclude))
+
+phase_2_df <- phase_2_df %>%
+  filter(!(subj_id %in% participants_to_exclude))
+
+total_participants_after <- length(unique(phase_1_df$subj_id))
+cat("Total number of participants after exclusion:", total_participants_after, "\n")
+
+
+two_parts_df_exp3 <- phase_1_df %>%
+  inner_join(
+    phase_2_df,
+    by = c("subj_id", "trial_num"),
+    suffix = c("_part1", "_part2")
+  )
+
+# rank participants based on score:
+top_ids <- raw_df %>%
+  dplyr::select(
+    subj_id, 
+    cumulative_score
+) %>%
+  filter(!subj_id %in% participants_to_exclude) %>%
+  group_by(subj_id) %>%
+  summarise(max_cumulative_score = max(cumulative_score, na.rm = TRUE)) %>%
+  arrange(desc(max_cumulative_score)) %>%
+  slice_head(n = 30) %>% # 20*0.3 = 6
+  pull(subj_id)
+
+# bonus participants
+print(top_ids)
+
+```
+
+```{r demographic, include = FALSE, cache=F}
+library(readr)
+library(dplyr)
+
+combined_prolific_path <-  "...data/experiment3/exp3_demographic.csv"
+merged_output_path <- "merged_prolific_and_raw_data_exp3.csv"
+
+tryCatch({
+  prolific_data <- read_csv(combined_prolific_path)
+  if (!exists("raw_df")) {
+    stop("The dataframe 'raw_df' was not found. Please load it before running this merge.")
+  }
+
+  merged_data <- inner_join(
+    prolific_data, 
+    raw_df, 
+    by = c("Participant id" = "subj_id")
+  )
+  
+  write_csv(merged_data, merged_output_path)
+  
+  print(paste("Successfully merged data and saved to:", merged_output_path))
+  print(paste("Original prolific rows:", nrow(prolific_data)))
+  print(paste("Original raw_df rows:", nrow(raw_df)))
+  print(paste("Total merged rows:", nrow(merged_data)))
+
+}, error = function(e) {
+  print(paste("An error occurred:", e$message))
+})
+
+
+```
+
+```{r explicit rule discoverers, include = FALSE, cache=F}
+### RULE DISCOVERY 
+
+rule_list <- c("65dca6bb88611ac902cc60fb",
+               "5dcdb60be64aaa07c14065cc",
+               "5e38777a87243b095c67543b",
+               "61282ca83be28773ac7c421f",
+               "62b20c0065e9809e66d13fa5",
+               "661403131cecbe255b64ca6f",
+               "66b8e8f12fa9160e4ca9f25b",
+               "66cc906a1d6bea34dd2e57b0",
+               "6720fbc84253185973cbe564",
+               "67665f7b0329bd3e30515ad2",
+               "677a8e5affbe5673b3a79e6b",
+               "682b8071ffc2da7edd49f10c",
+               "654a86d08714f739c9fcea21"
+)
+
+two_parts_df_exp3 <- two_parts_df_exp3 %>%
+  mutate(mentioned_rule = subj_id %in% rule_list)
+
+phase_1_df <- phase_1_df %>%
+  mutate(mentioned_rule = subj_id %in% rule_list)
+
+phase_2_df <- phase_2_df %>%
+  mutate(mentioned_rule = subj_id %in% rule_list)
+
+stoneposition<- raw_df %>%
+  group_by(stoneposition) %>%
+  summarise(n=length(unique(subj_id)))
+```
+
+```{r standardise_data, cache=F}
+
+keys <- c("subj_id", "trial_num")
+
+names1 <- names(phase_1_df)
+names2 <- names(phase_2_df)
+
+common_names <- intersect(names1, names2)
+common_names
+
+common_nonkey <- setdiff(common_names, keys)
+common_nonkey
+
+two_parts_df_exp3 <- phase_1_df %>%
+  inner_join(phase_2_df %>%
+               mutate(
+                 chose_gems_p2 = chose_gems,
+                 chose_onlystones_p2 = chose_onlystones, 
+                 chose_other_p2 = chose_other,
+                 response_position_p2 = response_position,
+                 correct_choice_position_p2 = correct_choice_position,
+                 rt_p2 = rt,
+                 choice_rt_p2 = choice_rt
+               ) %>%
+               select(-c(left_word, 
+                         left_number,
+                         middle_word,
+                         middle_number,
+                         right_word,
+                         right_number,
+                         chose_gems,
+                         chose_onlystones,
+                         chose_other,
+                         response_position,
+                         correct_choice_position,
+                         is_catch_trial,
+                         is_show_trial,
+                         stoneposition,
+                         emeraldposition,
+                         rt, 
+                         mentioned_rule,
+                         computer_response_position,
+                         choice_rt,
+                         )),
+            by = c("subj_id", "trial_num"))
+
+write.csv(
+  two_parts_df_exp3,
+  "two_parts_df_exp3.csv",
+  row.names = FALSE
+)
+
+two_parts_df_exp3 <- read.csv("two_parts_df_exp3.csv")
+
+```
+
+
+`r total_participants_before` participants took part in the experiment. `r exclude_catch%>%length()` were excluded based on failing 2 or more catch trials, `r exclude_comprehension%>%length()` based on requiring three or more repetitions of the instructions before passing the comprehension checks in part 1 or in part 2, and `r exclude_part1_rt%>% c(exclude_part2_confidence_rt, exclude_part2_rt) %>%unique() %>%length()` based on responding too quickly (100 ms or below) on at least 25% of trials in at least one part of the experiment, leaving `r total_participants_after` participants for the main analysis: `r two_parts_df_exp3 %>% filter(stoneposition == "left") %>% group_by(subj_id) %>% pull(subj_id) %>% unique() %>% length()` for whom the left position never had gems, `r two_parts_df_exp3 %>% filter(stoneposition == "middle") %>% group_by(subj_id) %>% pull(subj_id) %>% unique() %>% length()` for whom it was the middle one and `r two_parts_df_exp3 %>% filter(stoneposition == "right") %>% group_by(subj_id) %>% pull(subj_id) %>% unique() %>% length()` for whom it was the right one.
+
+When asked at the end of the experiment whether they discovered a rule, a subset of `r two_parts_df_exp3 %>% filter(mentioned_rule) %>% group_by(subj_id) %>% pull(subj_id) %>% unique() %>% length()` participants (hereafter, explicit learners) mentioned the location of the boxes -- either directly specifying the rule or mentioning that a specific position was more likely to have gems in it.
+
+### phase 1 accuracy
+
+```{r phase_1_and_2_accuracy,  cache=F, fig.width=8}
+
+# Bins: 1-5, 6-10, 11-15, 16-20, 21-25, 26-30, 31-35, 36-40, 41-45, 46-50
+
+# --- Define Position Dodge ---
+pd <- position_dodge(width = 0.2)
+bin_labels <- c("1–5", "6–10", "11–15", "16–20", "21–25", 
+                "26–30", "31–35", "36–40", "41–45", "46–50")
+
+# Breaks are set at 0.5, 5.5, 10.5, etc. to correctly group the integer trial numbers
+breaks <- c(0.5, 5.5, 10.5, 15.5, 20.5, 25.5, 30.5, 35.5, 40.5, 45.5, 50.5)
+
+# This sequence creates vertical lines between the bins (at 1.5, 2.5, etc.)
+vline_x <- seq(1.5, length(bin_labels) - 0.5, by = 1)
+
+# --- Create binned dataframe ---
+# Uses raw_df and rule_list which are available from previous chunks
+df_binned <- raw_df %>%
+  filter(!is_catch_trial, phase %in% c("part1", "part2")) %>%
+  mutate(
+    mentioned_rule = subj_id %in% rule_list,
+    bin = cut(trial_num, breaks = breaks, labels = bin_labels,
+              include.lowest = TRUE, right = TRUE),
+    bin = factor(bin, levels = bin_labels)
+  )
+
+# --- Summarise by subj, phase, bin, and mentioned_rule ---
+by_subj_bias <- df_binned %>%
+  group_by(subj_id, phase, bin, mentioned_rule) %>%
+  summarise(bias = mean(chose_onlystones, na.rm = TRUE), .groups = "drop")
+
+# --- Subgroup summary (mentioned vs not) ---
+group_summary_sub <- by_subj_bias %>%
+  group_by(phase, bin, mentioned_rule) %>%
+  summarise(
+    m  = mean(bias, na.rm = TRUE),
+    se = sd(bias,  na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+
+# --- Rewritten Plot ---
+ggplot(group_summary_sub, 
+       aes(x = bin, y = m, 
+           color = mentioned_rule,  # Swapped from 'phase'
+           shape = phase,           # Swapped from 'mentioned_rule'
+           linetype = phase,        # Swapped from 'mentioned_rule'
+           group = interaction(mentioned_rule, phase))) +
+  
+  # vertical and horizontal lines (from your original)
+  geom_vline(xintercept = vline_x, linetype = "dashed", linewidth = 0.3, color = "grey") +
+  geom_hline(yintercept = 1/3, linewidth = 0.3) +
+  
+  # Geoms now inherit aesthetics and use position_dodge
+  geom_line(linewidth = 0.7, position = pd) +
+  geom_point(position = pd, size = 2) +
+  geom_errorbar(aes(ymin = m - se, ymax = m + se), 
+                position = pd, width = 0.2, linetype = 'solid') +
+  
+  # Updated scales to match new aesthetics
+  
+  scale_shape_discrete(name = "Part") +
+  scale_linetype_discrete(name = "Part") +
+  
+  scale_color_discrete(
+    name = "Mentioned position",
+    labels = c("TRUE" = "Mentioned", "FALSE" = "NOT mentioned")
+  ) +
+ 
+
+  # Updated labs
+  labs(x = "Trial Bin", y = "P(stones only)",
+       title = "Binned bias by rule discovery (group mean ± SE)") +
+  theme_minimal()
+
+
+
+phase_1_acc <- two_parts_df_exp3%>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  summarise(acc=mean(chose_gems))
+
+r_phase_1_acc <-two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  summarise(acc=mean(chose_gems))
+
+nr_phase_1_acc <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  summarise(acc=mean(chose_gems))
+
+phase_1_acc_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  summarise(r=cor(chose_gems,trial_num))
+
+r_phase_1_acc_slopes <-two_parts_df_exp3%>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  summarise(r=cor(chose_gems,trial_num))
+
+nr_phase_1_acc_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  summarise(r=cor(chose_gems,trial_num))
+
+phase_2_acc <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  summarise(acc=mean(is_consistent, na.rm =TRUE))
+
+r_phase_2_acc <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  summarise(acc=mean(is_consistent, na.rm =TRUE))
+
+nr_phase_2_acc <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  summarise(acc=mean(is_consistent, na.rm =TRUE))
+
+phase_2_acc_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  summarise(r=cor(is_consistent,trial_num, use = "complete.obs"))
+
+r_phase_2_acc_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  summarise(r=cor(is_consistent,trial_num, use = "complete.obs"))
+
+nr_phase_2_acc_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  summarise(r=cor(is_consistent,trial_num, use = "complete.obs"))
+
+phase_2_pstones <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  summarise(pstones=mean(chose_onlystones,na.rm = TRUE))
+
+r_phase_2_pstones <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  summarise(pstones=mean(chose_onlystones,na.rm = TRUE))
+
+nr_phase_2_pstones <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  summarise(pstones=mean(chose_onlystones,na.rm = TRUE))
+
+```
+
+
+In part 1, mean proportion correct (in non-catch trials) was `r phase_1_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r phase_1_acc %>% pull(acc) %>%median()%>%printnum()`) and was not significantly higher than chance (1/3; `r apa_print(t.test(phase_1_acc %>% pull(acc),mu=1/3))$statistic`). Participants did not significantly improve as a function of trial number (a t-test on subject-specific learning slopes against 0: `r apa_print(t.test(phase_1_acc_slopes %>% pull(r)))$statistic`). 
+
+The mean accuracy for participants who mentioned the rule was `r r_phase_1_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r r_phase_1_acc %>% pull(acc) %>%median()%>%printnum()`) and was significantly higher than chance (1/3; `r apa_print(t.test(r_phase_1_acc %>% pull(acc),mu=1/3))$statistic`). Participants did not significantly improve as a function of trial number (a t-test on subject-specific learning slopes against 0: `r apa_print(t.test(r_phase_1_acc_slopes %>% pull(r)))$statistic`). 
+
+The mean accuracy for participants who did not mention the rule was r `r nr_phase_1_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r nr_phase_1_acc %>% pull(acc) %>%median()%>%printnum()`) and was not significantly higher than chance (1/3; `r apa_print(t.test(nr_phase_1_acc %>% pull(acc),mu=1/3))$statistic`). Participants did not improve as a function of trial number (a t-test on subject-specific learning slopes against 0: `r apa_print(t.test(nr_phase_1_acc_slopes %>% pull(r)))$statistic`). 
+
+
+
+### Hypothesis 1 (RULE LEARNING AVOIDANCE)
+
+```{r phase1avoidance, include = FALSE, cache=F}
+phase_1_pstones <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  summarise(pstones=mean(chose_onlystones,na.rm = TRUE))
+
+r_phase_1_pstones <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  summarise(pstones=mean(chose_onlystones,na.rm = TRUE))
+
+nr_phase_1_pstones <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  summarise(pstones=mean(chose_onlystones,na.rm = TRUE))
+
+
+```
+
+In part 1, participants chose the side that always had stones (in non-catch trials)  on `r phase_1_pstones %>% pull(pstones) %>%mean()%>%printnum()` (median=`r phase_1_pstones %>% pull(pstones) %>%median()%>%printnum()`) of all trials, not significantly below chance (1/3; `r apa_print(t.test(phase_1_pstones %>% pull(pstones),mu=1/3))$statistic`).
+
+Participants who mentioned the rule chose the side that always had stones on `r r_phase_1_pstones %>% pull(pstones) %>%mean()%>%printnum()` (median=`r r_phase_1_pstones %>% pull(pstones) %>%median()%>%printnum()`) of all trials, significantly below chance (1/3; `r apa_print(t.test(r_phase_1_pstones %>% pull(pstones),mu=1/3))$statistic`). This is in contrast to participants who did not mention the rule who chose the side that always had stones on `r nr_phase_1_pstones %>% pull(pstones) %>%mean()%>%printnum()` (median=`r nr_phase_1_pstones %>% pull(pstones) %>%median()%>%printnum()`) of all trials, performing at chance (1/3; `r apa_print(t.test(nr_phase_1_pstones %>% pull(pstones),mu=1/3))$statistic`). The difference in means between the two groups are significant (`r apa_print(t.test(r_phase_1_pstones %>% pull(pstones),nr_phase_1_pstones %>% pull(pstones)))$statistic`)
+
+### Hypothesis 2 (RULE LEARNING: SLOPES)
+
+```{r phase1slopes, include = FALSE, cache=F}
+library(broom)
+pstones_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>% 
+  do(tidy(glm(
+    chose_onlystones ~ trial_num, 
+    family = binomial, 
+    data = .
+  ))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope = estimate)
+
+r_pstones_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>% 
+  do(tidy(glm(
+    chose_onlystones ~ trial_num, 
+    family = binomial, 
+    data = .
+  ))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope = estimate)
+
+nr_pstones_slopes <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>% 
+  do(tidy(glm(
+    chose_onlystones ~ trial_num, 
+    family = binomial, 
+    data = .
+  ))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope = estimate)
+
+
+pstones_slopes_p2 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  do(tidy(glm(
+    chose_onlystones_p2 ~ trial_num,
+    family = binomial,
+    data = .
+  )))%>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope=estimate)
+
+r_pstones_slopes_p2 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, mentioned_rule) %>%
+  do(tidy(glm(
+    chose_onlystones_p2 ~ trial_num,
+    family = binomial,
+    data = .
+  )))%>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope=estimate)
+
+nr_pstones_slopes_p2 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !mentioned_rule) %>%
+  do(tidy(glm(
+    chose_onlystones_p2 ~ trial_num,
+    family = binomial,
+    data = .
+  )))%>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope=estimate)
+
+
+
+
+```
+
+Participants did not improve as a function of trial number (a t-test on subject-specific learning slopes from a logistic regression against 0: `r apa_print(t.test(pstones_slopes %>% pull(slope)))$statistic`).This was true for participants who explicitly learnt the rule (`r apa_print(t.test(r_pstones_slopes %>% pull(slope)))$statistic`). For participants who did not learn the rule, the results were marginally significant, suggesting some learning as a function of trial number (`r apa_print(t.test(nr_pstones_slopes %>% pull(slope)))$statistic`). 
+
+In part 2, participants did not avoid stones only as a function of trial number (a t-test on subject-specific learning slopes from a logistic regression against 0: `r apa_print(t.test(pstones_slopes_p2 %>% pull(slope)))$statistic`).This was true for participants who explicitly learnt the rule (`r apa_print(t.test(r_pstones_slopes_p2 %>% pull(slope)))$statistic`) but not true for participants who did not learn the rule (`r apa_print(t.test(nr_pstones_slopes_p2 %>% pull(slope)))$statistic`). 
+
+```{r softmax_model, cache=FALSE}
+
+library(tidyverse)
+library(mlogit)
+library(broom)
+library(purrr)
+
+part1_trialtype <- phase_1_df %>%
+  mutate(
+    part1_type = case_when(
+      chose_gems ~ 'im_correct',
+      computer_chose_gems ~ 'com_correct',
+      chose_gems == FALSE & computer_chose_gems == FALSE ~ 'no_correct'
+    ),
+    part1_com_chose = case_when(
+      computer_chose_gems ~ 'gems',
+      computer_chose_onlystones ~ 'stones',
+      computer_chose_other ~ 'other'
+    ),
+    part1_chose_gems = chose_gems | computer_chose_gems,
+    i_chose_gems = chose_gems,
+    part1_correct_choice_position = correct_choice_position
+  ) %>%
+  select(subj_id, trial_num, part1_type, part1_com_chose, part1_chose_gems, 
+         computer_chose_gems, computer_chose_other, computer_chose_onlystones, 
+         i_chose_gems, part1_correct_choice_position)
+
+combined_trialtype <- phase_2_df %>%
+  left_join(part1_trialtype, by = c("subj_id", "trial_num")) %>%
+  mutate(
+    part2_type = case_when(
+      is_consistent ~ 'my_choice',
+      is_consistent_computer ~ 'com_choice',
+      !is_consistent & !is_consistent_computer ~ 'no_choice'
+    ),
+    rewarded = part1_chose_gems,
+    trial_type = case_when(
+      part1_chose_gems & is_consistent ~ "im_correct_my_choice",
+      part1_chose_gems & is_consistent_computer ~ "im_correct_com_choice",
+      part1_chose_gems & part2_type == "no_choice" ~ "im_correct_no_choice",
+      computer_chose_gems & is_consistent ~ "com_correct_my_choice",
+      computer_chose_gems & is_consistent_computer ~ "com_correct_com_choice",
+      computer_chose_gems & part2_type == "no_choice" ~ "com_correct_no_choice",
+      part1_type == "no_correct" & is_consistent ~ "no_correct_my_choice",
+      part1_type == "no_correct" & is_consistent_computer ~ "no_correct_com_choice",
+      part1_type == "no_correct" & part2_type == "no_choice" ~ "no_correct_no_choice"
+    )
+  )
+
+
+combined_trialtype <- combined_trialtype %>%
+  rowwise() %>%
+  mutate(
+    part1_subject_pos = as.character(part1_response_position),
+    part1_computer_pos = case_when(
+      computer_chose_gems          ~ part1_correct_choice_position,
+      computer_chose_onlystones    ~ stoneposition,
+      computer_chose_other         ~ {
+        others <- setdiff(c("left","middle","right"),
+                          c(part1_correct_choice_position, stoneposition))
+        if (length(others) > 0) others[1] else NA_character_
+      },
+      TRUE ~ NA_character_
+    ),
+    part1_none_pos = {
+      used <- c(part1_subject_pos, part1_computer_pos)
+      leftover <- setdiff(c("left","middle","right"), used)
+      if (length(leftover) > 0) leftover[1] else NA_character_
+    }
+  ) %>%
+  ungroup()
+
+spatial_long <- combined_trialtype %>%
+  filter(!is_catch_trial) %>%
+  mutate(key = 1) %>%
+  crossing(alt = c("left", "middle", "right")) %>%
+  select(-key) %>%
+  rowwise() %>%
+  mutate(
+    part2_response_pos = case_when(
+      part2_type == "my_choice"  ~ part1_subject_pos,
+      part2_type == "com_choice" ~ part1_computer_pos,
+      part2_type == "no_choice"  ~ part1_none_pos,
+      TRUE ~ NA_character_
+    ),
+    
+    choice = as.integer(part2_response_pos == alt),
+    
+    value = case_when(
+      alt == "left"   ~ left_number,
+      alt == "middle" ~ middle_number,
+      alt == "right"  ~ right_number
+    ),
+    
+    chosen_by_me = as.integer(part1_subject_pos == alt),
+    
+    chosen_by_computer = as.integer(part1_computer_pos == alt),
+
+    gems = as.integer(part1_correct_choice_position == alt),
+
+    rewarded = as.integer(part1_chose_gems == 1 & part1_correct_choice_position == alt),
+
+    i_revealed_gems = as.integer(i_chose_gems == 1 & part1_correct_choice_position == alt),
+
+    part1_my_choice  = as.integer(part1_subject_pos == alt),
+    
+    part1_com_choice = as.integer(part1_computer_pos == alt),
+
+    onlystones = as.integer(stoneposition == alt),
+    
+    my_reward = as.integer(part1_my_choice == 1 & (part1_correct_choice_position == alt)),
+    
+    com_reward = as.integer(part1_com_choice == 1 & (part1_correct_choice_position == alt)),
+    
+    stone_trial = trial_num * onlystones,
+    
+    chid = paste0(subj_id, "_", trial_num)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    value = as.numeric(value),
+    choice = as.integer(choice),
+    chosen_by_me = as.integer(chosen_by_me),
+    gems = as.integer(gems),
+    rewarded = as.integer(rewarded),
+    i_revealed_gems = as.integer(i_revealed_gems),
+    trial_num = as.numeric(trial_num)
+  ) %>%
+  select(subj_id, trial_num, chid, alt, choice, value,
+         chosen_by_me, chosen_by_computer, gems, rewarded, i_revealed_gems,
+         part1_my_choice, part1_com_choice, part1_subject_pos, part1_computer_pos,
+         stone_trial, stoneposition)
+
+
+fit_subject_mlogit <- function(df_sub) {
+  subj <- unique(df_sub$subj_id)
+  stone_val <- unique(df_sub$stoneposition)[1]
+  n_chid <- df_sub %>% distinct(chid) %>% nrow()
+
+  req_cols <- c("alt", "choice", "chid", "chosen_by_me", "gems", "rewarded", "i_revealed_gems")
+
+  if (!all(req_cols %in% names(df_sub))) {
+    message("Missing required cols for subj ", subj, ": ", paste(setdiff(req_cols, names(df_sub)), collapse = ", "))
+    return(NULL)
+  }
+
+  df_sub <- df_sub %>% mutate(alt = factor(alt, levels = c("left","middle","right")))
+
+  mdf <- tryCatch({
+    mlogit.data(df_sub, choice = "choice", shape = "long",
+                chid.var = "chid", alt.var = "alt", id.var = "subj_id")
+  }, error = function(e) NULL)
+
+  if (is.null(mdf)) return(NULL)
+
+  fmla <- choice ~ chosen_by_me  + gems + rewarded + i_revealed_gems | 0
+
+  model <- tryCatch({
+    mlogit(fmla, data = mdf)
+  }, error = function(e) {
+    message("mlogit failed for subj ", subj, ": ", e$message)
+    return(NULL)
+  })
+
+  if (is.null(model)) return(NULL)
+
+  coefs <- tryCatch({
+    est <- coef(model)
+    vc  <- vcov(model)
+    se <- sqrt(diag(vc))[names(est)]
+
+    tibble(
+      subj_id = subj,
+      term = names(est),
+      estimate = as.numeric(est),
+      std.error = as.numeric(se),
+      t_stat = estimate / std.error,
+      p_val = 2 * (1 - pnorm(abs(t_stat))),
+      n_chid = n_chid,
+      stoneposition = stone_val
+    )
+  }, error = function(e) {
+    tdf <- broom::tidy(model)
+    if (!is.null(tdf) && all(c("term","estimate","std.error") %in% names(tdf))) {
+      return(tdf %>%
+               transmute(subj_id = subj,
+                         term = term,
+                         estimate = estimate,
+                         std.error = std.error,
+                         t_stat = estimate / std.error,
+                         p_val = 2 * (1 - pnorm(abs(t_stat))),
+                         stoneposition = stone_val,
+                         n_chid = n_chid))
+    } else {
+      return(tibble(
+        subj_id = subj,
+        term = "ERROR_extract_coefs",
+        estimate = NA_real_,
+        std.error = NA_real_,
+        t_stat = NA_real_,
+        p_val = NA_real_,
+        stoneposition = stone_val,
+        n_chid = n_chid,
+        notes = paste("coef extraction failed:", conditionMessage(e))
+      ))
+    }
+  })
+
+  return(coefs)
+}
+
+per_subj_results <- spatial_long %>%
+  group_by(subj_id) %>%
+  group_split() %>%
+  set_names(map_chr(., ~ unique(.$subj_id))) %>%
+  map_dfr(~ fit_subject_mlogit(.x), .id = "subj_id_try")
+
+all_subj <- unique(spatial_long$subj_id)
+fitted_subj <- unique(per_subj_results$subj_id)
+failed_subjects <- setdiff(all_subj, fitted_subj)
+
+if (length(failed_subjects)>0) {
+  message("Failed subjects: ", paste(failed_subjects, collapse=", "))
+}
+
+if ("stoneposition" %in% names(per_subj_results)) {
+  per_subj_results <- per_subj_results %>% mutate(stoneposition = as.character(stoneposition))
+}
+
+per_subj_betas <- per_subj_results %>%
+  select(subj_id, term, estimate, std.error, t_stat, p_val, n_chid, stoneposition)
+
+group_level_betas <- per_subj_betas %>%
+  filter(!grepl("^ERROR", term)) %>%
+  group_by(term) %>%
+  summarise(
+    mean_beta = mean(estimate, na.rm = TRUE),
+    median_beta = median(estimate, na.rm = TRUE),
+    sd_beta   = sd(estimate, na.rm = TRUE),
+    n         = sum(!is.na(estimate)),
+    ttest     = list(if (n>1) t.test(estimate, mu = 0) else NULL),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    t_stat  = if_else(n>1, map_dbl(ttest, ~ .x$statistic), NA_real_),
+    p_value = if_else(n>1, map_dbl(ttest, ~ .x$p.value), NA_real_),
+    conf_low  = if_else(n>1, map_dbl(ttest, ~ .x$conf.int[1]), NA_real_),
+    conf_high = if_else(n>1, map_dbl(ttest, ~ .x$conf.int[2]), NA_real_),
+    significance = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      TRUE            ~ "ns"
+    )
+  ) %>%
+  select(-ttest)
+
+print(group_level_betas)
+
+```
+
+#### Results from the preregistered softmax model
+
+At the group level, the effect of choosing the option oneself was positive on average (mean β = 
+`r group_level_betas %>% filter(term == "chosen_by_me") %>% pull(mean_beta) %>% printnum()`,
+median = 
+`r group_level_betas %>% filter(term == "chosen_by_me") %>% pull(median_beta) %>% printnum()`), 
+and was 
+`r group_level_betas %>% filter(term == "chosen_by_me") %>% pull(p_value) %>% print()`
+(`r group_level_betas %>% filter(term == "chosen_by_me") %>% pull(significance)`).
+
+The presence of gems also influenced choice behavior (mean β = 
+`r group_level_betas %>% filter(term == "gems") %>% pull(mean_beta) %>% printnum()`,
+median = 
+`r group_level_betas %>% filter(term == "gems") %>% pull(median_beta) %>% printnum()`), with a group-level test yielding 
+*p* = 
+`r group_level_betas %>% filter(term == "gems") %>% pull(p_value) %>% print()`.
+
+Rewarded locations showed a mean effect of 
+`r group_level_betas %>% filter(term == "rewarded") %>% pull(mean_beta) %>% printnum()` 
+(median = 
+`r group_level_betas %>% filter(term == "rewarded") %>% pull(median_beta) %>% printnum()`), 
+which was not significant
+(`r group_level_betas %>% filter(term == "rewarded") %>% pull(p_value) %>% printnum() `)
+at the group level.
+
+revealing gems oneself had a mean group-level coefficient of 
+`r group_level_betas %>% filter(term == "i_revealed_gems") %>% pull(mean_beta) %>% printnum()` 
+(median = 
+`r group_level_betas %>% filter(term == "i_revealed_gems") %>% pull(median_beta) %>% printnum()`), 
+with 
+*p* = 
+`r group_level_betas %>% filter(term == "i_revealed_gems") %>% pull(p_value) %>% print()`.
+
+### Hypothesis 3 (RECONSTRUCTION ACCURACY)
+
+We will test the null hypothesis that participants’ accuracy in reconstructing their choices from part 1 is at chance (1/3). This will be tested by taking the mean beta coefficient for each participant for the variable chosen by me and performing a one-sample t-test.
+
+In part 2, mean proportion correct (in non-catch trials) was `r phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r phase_2_acc %>% pull(acc) %>%median()%>%printnum()`).Mean accuracy for participants who mentioned rule was `r r_phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r r_phase_2_acc %>% pull(acc) %>%median()%>%printnum()`) and mean accuracy for participants who did not mention the rule was `r nr_phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r nr_phase_2_acc %>% pull(acc) %>%median()%>%printnum()`).
+
+The probability that participants chose the only stones option in part 2 was `r phase_2_pstones %>% pull(pstones) %>% mean() %>% printnum()` (median = `r phase_2_pstones %>% pull(pstones) %>% median() %>% printnum()`). Mean probability for participants  who mentioned the rule was `r r_phase_2_pstones %>% pull(pstones) %>% mean() %>% printnum()` (median = `r r_phase_2_pstones %>% pull(pstones) %>% median() %>% printnum()`) and for participants who did not mention the rule was `r nr_phase_2_pstones %>% pull(pstones) %>% mean() %>% printnum()` (median = `r nr_phase_2_pstones %>% pull(pstones) %>% median() %>% printnum`)
+
+The mean beta coefficient for *chosen by me* was `r group_level_betas %>% filter(term == "chosen_by_me") %>% pull(mean_beta)` (median = `r group_level_betas %>% filter(term == "chosen_by_me") %>% pull(median_beta)`). The results from the one-sample t-test are significant `r apa_print(per_subj_betas %>% filter(term == "chosen_by_me") %>% pull(estimate) %>% t.test(mu = 0))$statistic`
+
+
+In part 2, mean proportion correct (in non-catch trials) was `r phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r phase_2_acc %>% pull(acc) %>%median()%>%printnum()`) and significantly higher than chance (1/3; `r apa_print(t.test(phase_2_acc %>% pull(acc),mu=1/3))$statistic`). 
+
+Mean accuracy for participants who mentioned rule was `r r_phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r r_phase_2_acc %>% pull(acc) %>%median()%>%printnum()`) and significantly higher than chance (1/3; `r apa_print(t.test(r_phase_2_acc %>% pull(acc),mu=1/3))$statistic`). 
+
+Mean accuracy for participants who did not mention the rule was `r nr_phase_2_acc %>% pull(acc) %>%mean()%>%printnum()` (median=`r nr_phase_2_acc %>% pull(acc) %>%median()%>%printnum()`) and significantly higher than chance (1/3; `r apa_print(t.test(nr_phase_2_acc %>% pull(acc),mu=1/3))$statistic`). 
+
+The difference in mean between the two groups are not significant (`r apa_print(t.test(r_phase_2_acc %>% pull(acc),nr_phase_2_acc %>% pull(acc)))$statistic`). 
+
+### Hypothesis 4 (RECONSTRUCTION BIAS): 
+
+We will test the null hypothesis that participants were equally likely to choose a box regardless of whether they (either participant or computer) obtained a reward or not. This will be tested by taking the mean beta coefficient for each participant for the variable gems and performing a one-sample t-test.
+
+
+The mean beta coefficient for *gems* was `r group_level_betas %>% filter(term == "gems") %>% pull(mean_beta)` (median = `r group_level_betas %>% filter(term == "gems") %>% pull(median_beta)`). The results from the one-sample t-test are not significant `r apa_print(per_subj_betas %>% filter(term == "gems") %>% pull(estimate) %>% t.test(mu = 0))$statistic`. 
+
+### Hypothesis 5 (EFFECT OF REWARD)
+
+We will test the null hypothesis that participants were equally likely to choose the box that contained gems regardless of whether the gems were awarded or not. This will be tested by taking the mean beta coefficient for each participant for the variable rewarded and performing a one-sample t-test.
+
+The mean beta coefficient for *rewarded* was `r group_level_betas %>% filter(term == "rewarded") %>% pull(mean_beta)` (median = `r group_level_betas %>% filter(term == "rewarded") %>% pull(median_beta)`). The results from the one-sample t-test are not significant `r apa_print(per_subj_betas %>% filter(term == "rewarded") %>% pull(estimate) %>% t.test(mu = 0))$statistic`. 
+
+### Hypothesis 6 (EFFECT OF ACCURACY)
+
+We will test the null hypothesis that participants’ accuracy in part 2 is unaffected by their accuracy in part 1 controlling for reward. This will be tested by taking the mean beta coefficient for each participant for the variable “I revealed gems” and performing a one-sample t-test.
+
+The mean beta coefficient for *I revealed gems* was `r group_level_betas %>% filter(term == "i_revealed_gems") %>% pull(mean_beta)` (median = `r group_level_betas %>% filter(term == "i_revealed_gems") %>% pull(median_beta)`). The results from the one-sample t-test are significant `r apa_print(per_subj_betas %>% filter(term == "i_revealed_gems") %>% pull(estimate) %>% t.test(mu = 0))$statistic`. 
+
+### Hypothesis 7: (POSITION BIAS IN RECONSTRUCTION ERRORS)
+
+We will test the null hypothesis that participants’remembered decisions are not biased for or against the stones-only location. For this, we will focus on trials in which the original decision revealed gems, but they made an error in reconstruction. We will compare the probability of choosing the stones-only position against 50%. Since different participants will have different number of trials for this analysis, this will be tested using a mixed-effects logistic regression (chose_stones_only∼1+(1|subj_id), run with lme4’s glmer, assuming a binomial variable and using a bobyqa optimizer).
+
+```{r hypothesis_6, include = TRUE, cache=F}
+library(lme4)
+
+ never_stone_ids <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(never_stone = any(chose_onlystones_p2, na.rm = TRUE)) %>%
+  filter(!never_stone) %>%
+  pull(subj_id)
+  
+
+h6_df <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial,
+         chose_gems == TRUE,       
+         is_consistent == FALSE,
+         !(subj_id %in% never_stone_ids)
+         ) 
+
+control_opts <- glmerControl(optimizer = "bobyqa")
+
+# Overall model
+h6_model <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                  data = h6_df,
+                  family = binomial,
+                  control = control_opts)
+
+r_h6_model <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                  data = h6_df %>% filter(mentioned_rule),
+                  family = binomial,
+                  control = control_opts)
+
+nr_h6_model <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                  data = h6_df %>% filter(!mentioned_rule),
+                  family = binomial,
+                  control = control_opts)
+
+h6_model_mentioned_vs_notmentioned <- glmer(chose_onlystones_p2 ~ mentioned_rule + (1 | subj_id),
+                  data = h6_df,
+                  family = binomial,
+                  control = glmerControl(optimizer = "bobyqa"))
+
+```
+
+In Part 2 trials in which the original decision revealed gems but participants made an error in reconstruction, we fitted a mixed-effects logistic regression with a random intercept for participant. The estimated probability of selecting the stones-only position was 
+`r printnum(round(plogis(fixef(h6_model)[1]), 2))` (not significant), 
+corresponding to a log-odds estimate of 
+β = `r printnum(round(fixef(h6_model)[1], 2))`, 
+SE = `r printnum(round(summary(h6_model)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(h6_model)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(h6_model)$coefficients[1, "Pr(>|z|)"])`, 
+and an odds ratio of 
+OR = `r printnum(round(exp(fixef(h6_model)[1]), 2))`, 
+95% CI [`r printnum(round(exp(confint(h6_model, parm = "beta_", method = "Wald")[1, 1]), 2))`, 
+`r printnum(round(exp(confint(h6_model, parm = "beta_", method = "Wald")[1, 2]), 2))`].
+
+
+For participants who mentioned the rule the estimated probability of selecting the stones-only position was `r printnum(round(unname(1 / (1 + exp(-fixef(r_h6_model)))), 2))` and was significant (β = `r printnum(round(fixef(r_h6_model)[1], 2))`, 
+SE = `r printnum(round(summary(r_h6_model)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(r_h6_model)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(r_h6_model)$coefficients[1, "Pr(>|z|)"])`, ).
+
+For participants who did not mention the rule, the estimated probability of selecting the stones-only position was `r printnum(round(unname(1 / (1 + exp(-fixef(nr_h6_model)))), 2))` and not significant (β = `r printnum(round(fixef(nr_h6_model)[1], 2))`, 
+SE = `r printnum(round(summary(nr_h6_model)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(nr_h6_model)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(nr_h6_model)$coefficients[1, "Pr(>|z|)"])`, ).
+
+The difference between the two groups (those who mentioned and did not mention the rule) is significant, with *mentioned_rule* included as a fixed effect in the model. Participants who mentioned the rule were less likely to choose the stones-only option than those who did not mention the rule (β =`r printnum(round(summary(h6_model_mentioned_vs_notmentioned)$coefficients["mentioned_ruleTRUE", "Estimate"],2))`, SE = `r printnum(round(summary(h6_model_mentioned_vs_notmentioned)$coefficients["mentioned_ruleTRUE", "Std. Error"],2))`, z = `r printnum(round(summary(h6_model_mentioned_vs_notmentioned)$coefficients["mentioned_ruleTRUE", "z value"],2))`, p `r printp(summary(h6_model_mentioned_vs_notmentioned)$coefficients["mentioned_ruleTRUE","Pr(>|z|)"][1])`)
+
+### Hypothesis 8: (CONFIDENCE: CORRECT VERSUS INCORRECT)
+
+We will test the null hypothesis that participants’ confidence for part 2 is equal for correct and incorrect decisions. This will be tested using a paired t-test. 
+
+```{r h8, cache=F}
+
+
+conf_mean_correct <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            median_conf = median(confidence, na.rm=TRUE))
+
+r_conf_mean_correct <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            median_conf = median(confidence, na.rm=TRUE))
+
+nr_conf_mean_correct <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, !mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            median_conf = median(confidence, na.rm=TRUE))
+
+
+conf_mean_incorrect <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  summarise(mean_conf = mean(confidence, na.rm=TRUE),
+            median_conf = median(confidence, na.rm=TRUE))
+
+r_conf_mean_incorrect <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent, mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence, na.rm=TRUE),
+            median_conf = median(confidence, na.rm=TRUE))
+
+nr_conf_mean_incorrect <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent,!mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence, na.rm=TRUE),
+            median_conf = median(confidence, na.rm=TRUE))
+
+# rt 
+
+rt_mean_correct <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  summarise(mean_rt = mean(choice_rt_p2, na.rm = TRUE),
+            median_rt = median(choice_rt_p2, na.rm=TRUE))
+
+r_rt_mean_correct <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt_p2, na.rm = TRUE),
+            median_rt = median(choice_rt_p2, na.rm=TRUE))
+
+nr_rt_mean_correct <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent, !mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt_p2, na.rm = TRUE),
+            median_rt = median(choice_rt_p2, na.rm=TRUE))
+
+rt_mean_incorrect <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  summarise(mean_rt = mean(choice_rt_p2, na.rm=TRUE),
+            median_rt = median(choice_rt_p2, na.rm=TRUE))
+
+r_rt_mean_incorrect <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent, mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt_p2, na.rm=TRUE),
+            median_rt = median(choice_rt_p2, na.rm=TRUE))
+
+nr_rt_mean_incorrect <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent, !mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt_p2, na.rm=TRUE),
+            median_rt = median(choice_rt_p2, na.rm=TRUE))
+
+
+conf_paired <- conf_mean_correct %>%
+  rename(mean_conf_correct = mean_conf) %>%
+  inner_join(
+    conf_mean_incorrect %>%
+      rename(mean_conf_incorrect = mean_conf),
+    by = "subj_id"
+  )
+
+r_conf_paired <- r_conf_mean_correct %>%
+  rename(mean_conf_correct = mean_conf) %>%
+  inner_join(
+    conf_mean_incorrect %>%
+      rename(mean_conf_incorrect = mean_conf),
+    by = "subj_id"
+  )
+
+
+nr_conf_paired <- nr_conf_mean_correct %>%
+  rename(mean_conf_correct = mean_conf) %>%
+  inner_join(
+    conf_mean_incorrect %>%
+      rename(mean_conf_incorrect = mean_conf),
+    by = "subj_id"
+  )
+
+rt_paired <- rt_mean_correct %>%
+  rename(median_rt_correct = median_rt) %>%
+  inner_join(
+    rt_mean_incorrect %>%
+      rename(median_rt_incorrect = median_rt),
+    by = "subj_id"
+  )
+
+r_rt_paired <- r_rt_mean_correct %>%
+  rename(median_rt_correct = median_rt) %>%
+  inner_join(
+    rt_mean_incorrect %>%
+      rename(median_rt_incorrect = median_rt),
+    by = "subj_id"
+  )
+
+nr_rt_paired <- nr_rt_mean_correct %>%
+  rename(median_rt_correct = median_rt) %>%
+  inner_join(
+    rt_mean_incorrect %>%
+      rename(median_rt_incorrect = median_rt),
+    by = "subj_id"
+  )
+
+
+
+
+```
+
+In part 2, mean confidence for correct decisions was `r conf_mean_correct$mean_conf%>%mean()%>%printnum()` (median=`r conf_mean_correct$mean_conf%>%median()%>%printnum()`). The mean confidence for incorrect decisions was `r conf_mean_incorrect$mean_conf%>%mean()%>%printnum()` (median=`r conf_mean_incorrect$mean_conf%>%median()%>%printnum()`). The difference in confidence was significant `r apa_print(t.test(conf_paired$mean_conf_correct,conf_paired$mean_conf_incorrect,paired = TRUE))$statistic`
+
+For participants who mentioned the rule, mean confidence for correct decisions was `r r_conf_mean_correct$mean_conf%>%mean()%>%printnum()` (median=`r r_conf_mean_correct$mean_conf%>%median()%>%printnum()`). The mean confidence for incorrect decisions was `r r_conf_mean_incorrect$mean_conf%>%mean()%>%printnum()` (median=`r r_conf_mean_incorrect$mean_conf%>%median()%>%printnum()`). The difference in confidence was significant `r apa_print(t.test(r_conf_paired$mean_conf_correct,r_conf_paired$mean_conf_incorrect,paired = TRUE))$statistic`
+
+For participants who did not mention the rule, mean confidence for correct decisions was `r nr_conf_mean_correct$mean_conf%>%mean()%>%printnum()` (median=`r nr_conf_mean_correct$mean_conf%>%median()%>%printnum()`). The mean confidence for incorrect decisions was `r nr_conf_mean_incorrect$mean_conf%>%mean()%>%printnum()` (median=`r nr_conf_mean_incorrect$mean_conf%>%median()%>%printnum()`). The difference in confidence was significant `r apa_print(t.test(nr_conf_paired$mean_conf_correct,nr_conf_paired$mean_conf_incorrect,paired = TRUE))$statistic`
+
+### Hypothesis 8: (RT: CORRECT VERSUS INCORRECT)
+
+In part 2, mean median RT for correct decisions was `r rt_mean_correct$median_rt%>%mean()%>%printnum()` (median=`r rt_mean_correct$median_rt%>%median()%>%printnum()`). The mean median RT for incorrect decisions was `r rt_mean_incorrect$median_rt%>%mean()%>%printnum()` (median=`r rt_mean_incorrect$median_rt%>%median()%>%printnum()`). The difference in median RT was significant `r apa_print(t.test(rt_paired$median_rt_correct,rt_paired$median_rt_incorrect,paired = TRUE))$statistic`. 
+
+For participants who mentioned the rule, mean median RT for correct decisions was `r r_rt_mean_correct$median_rt%>%mean()%>%printnum()` (median=`r r_rt_mean_correct$median_rt%>%median()%>%printnum()`). The mean median RT for incorrect decisions was `r r_rt_mean_incorrect$median_rt%>%mean()%>%printnum()` (median=`r r_rt_mean_incorrect$median_rt%>%median()%>%printnum()`). The difference in median RT was significant `r apa_print(t.test(r_rt_paired$median_rt_correct,r_rt_paired$median_rt_incorrect,paired = TRUE))$statistic`
+
+For participants who did not mention the rule, mean median RT for correct decisions was `r nr_rt_mean_correct$median_rt%>%mean()%>%printnum()` (median=`r nr_rt_mean_correct$median_rt%>%median()%>%printnum()`). The mean median RT for incorrect decisions was `r nr_rt_mean_incorrect$median_rt%>%mean()%>%printnum()` (median=`r nr_rt_mean_incorrect$median_rt%>%median()%>%printnum()`). The difference in median RT was significant `r apa_print(t.test(nr_rt_paired$median_rt_correct,nr_rt_paired$median_rt_incorrect,paired = TRUE))$statistic`
+
+### Hypothesis 9: (CONFIDENCE: CHOOSING GEMS IN PART 2)
+
+We will test the null hypothesis that participants’ confidence  for part 2 (correct trials only) is equal for choosing an option that contained gems in part 1 and choosing an option that did not contain gems in part 1. This will be tested using a paired t-test.
+
+```{r h9, cache=F}
+
+#conf
+gem_stone_conf <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id, chose_gems_p2, mentioned_rule) %>%
+  summarise(
+    mean_conf = mean(confidence)
+  )
+
+#rt 
+gem_stone_rt <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id, chose_gems_p2, mentioned_rule) %>%
+  summarise(
+    median_rt = median(choice_rt_p2)
+  )
+
+```
+
+In part 2, mean confidence when touching gems on trials in which participants were correct was `r gem_stone_conf %>% filter(chose_gems_p2) %>% pull(mean_conf) %>% mean()%>%printnum()` (median=`r gem_stone_conf %>% filter(chose_gems_p2) %>% pull(mean_conf) %>% median()%>%printnum()`). In trials which they chose stones, it was `r gem_stone_conf %>% filter(!chose_gems_p2) %>% pull(mean_conf) %>% mean()%>%printnum()` (median=`r  gem_stone_conf %>% filter(!chose_gems_p2) %>% pull(mean_conf) %>% median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(gem_stone_conf %>% filter(chose_gems_p2) %>% pull(mean_conf), gem_stone_conf %>% filter(!chose_gems_p2) %>% pull(mean_conf), paired=TRUE))$statistic`). 
+
+For participants who mentioned the rule, mean confidence when touching gems on trials in which participants were correct was `r gem_stone_conf %>% filter(chose_gems_p2, mentioned_rule) %>% pull(mean_conf) %>% mean()%>%printnum()` (median=`r gem_stone_conf %>% filter(chose_gems_p2, mentioned_rule) %>% pull(mean_conf) %>% median()%>%printnum() `). In trials which they chose stones, it was `r gem_stone_conf %>% filter(!chose_gems_p2, mentioned_rule) %>% pull(mean_conf) %>% mean()%>%printnum()` (median=`r  gem_stone_conf %>% filter(!chose_gems_p2, mentioned_rule) %>% pull(mean_conf) %>% median()%>%printnum()`). This difference was not significant (`r apa_print(t.test(gem_stone_conf %>% filter(chose_gems_p2, mentioned_rule) %>% pull(mean_conf), gem_stone_conf %>% filter(!chose_gems_p2, mentioned_rule) %>% pull(mean_conf), paired=TRUE))$statistic`). 
+
+For participants who did not mention the rule, , mean confidence when touching gems on trials in which participants were correct was `r gem_stone_conf %>% filter(chose_gems_p2, !mentioned_rule) %>% pull(mean_conf) %>% mean()%>%printnum()` (median=`r gem_stone_conf %>% filter(chose_gems_p2, !mentioned_rule) %>% pull(mean_conf) %>% median()%>%printnum()`). In trials which they chose stones, it was `r gem_stone_conf %>% filter(!chose_gems_p2, !mentioned_rule) %>% pull(mean_conf) %>% mean()%>%printnum()` (median=`r  gem_stone_conf %>% filter(!chose_gems_p2, !mentioned_rule) %>% pull(mean_conf) %>% median()%>%printnum() `). This difference was not significant (`r apa_print(t.test(gem_stone_conf %>% filter(chose_gems_p2, !mentioned_rule) %>% pull(mean_conf), gem_stone_conf %>% filter(!chose_gems_p2, !mentioned_rule) %>% pull(mean_conf), paired=TRUE))$statistic`). 
+
+### Hypothesis 9: (RT: CHOOSING GEMS IN PART 2)
+
+In part 2, the mean median reaction time when choosing gems in correct responses was `r gem_stone_rt %>% filter(chose_gems_p2) %>% pull(median_rt) %>% mean() %>% printnum()`and for choosing stones was `r gem_stone_rt %>% filter(!chose_gems_p2) %>% pull(median_rt) %>% mean() %>% printnum()`. A paired t-test reveals that there is no significant difference between median reaction times (`r apa_print(t.test(gem_stone_rt %>% filter(chose_gems_p2) %>% pull(median_rt),gem_stone_rt %>% filter(!chose_gems_p2) %>% pull(median_rt),paired = TRUE))$statistic`). 
+
+For participants that mentioned the rule, the median reaction time when choosing gems in correct responses was `r gem_stone_rt %>% filter(chose_gems_p2, mentioned_rule) %>% pull(median_rt) %>% mean() %>% printnum()`and for choosing stones was `r gem_stone_rt %>% filter(!chose_gems_p2, mentioned_rule) %>% pull(median_rt) %>% mean() %>% printnum()`. A paired t-test reveals that there is significant difference between median reaction times (`r apa_print(t.test(gem_stone_rt %>% filter(chose_gems_p2, mentioned_rule) %>% pull(median_rt),gem_stone_rt %>% filter(!chose_gems_p2, mentioned_rule) %>% pull(median_rt),paired = TRUE))$statistic`). 
+
+For participants that did not mention the rule,  the median reaction time when choosing gems in correct responses was `r gem_stone_rt %>% filter(chose_gems_p2, !mentioned_rule) %>% pull(median_rt) %>% mean() %>% printnum()`and for choosing stones was `r gem_stone_rt %>% filter(!chose_gems_p2, !mentioned_rule) %>% pull(median_rt) %>% mean() %>% printnum()`. A paired t-test reveals that there is no significant difference between median reaction times (`r apa_print(t.test(gem_stone_rt %>% filter(chose_gems_p2, !mentioned_rule) %>% pull(median_rt),gem_stone_rt %>% filter(!chose_gems_p2, !mentioned_rule) %>% pull(median_rt),paired = TRUE))$statistic`). 
+
+### Hypothesis 10 (CONFIDENCE: REWARDED VERSUS UNREWARDED): 
+
+#### WE ABANDON THIS HYPOTHESIS AS IT IS IDENTICAL TO HYPOTHESIS 9
+
+We will test the null hypothesis that participants’confidence for part 2 (correct trials only) is equal for choosing an option that was rewarded and choosing an option that was not rewarded. This will be tested using a paired t-test.
+
+```{r h10, cache=F}
+
+
+
+```
+
+### Hypothesis 11 (CONFIDENCE: I REVEALED VERSUS COMPUTER REVEALED): 
+
+We will test the null hypothesis that participants’ confidence for part 2 (correct trials only) is equal for choosing an option where they revealed gems in part 1 and choosing an option the computer revealed gems in part 1. This will be tested using a paired t-test.
+
+
+```{r h11, cache=F}
+
+part1_choices <- phase_1_df %>%
+  mutate(rewarded = case_when(
+    chose_gems|computer_chose_gems ~ TRUE,
+    TRUE ~ FALSE
+  ))%>%
+  select(subj_id, trial_num, rewarded )
+
+phase_2_merged_df <- phase_2_df %>%
+    left_join(part1_choices, by = c("subj_id", "trial_num"))
+
+#conf
+conf_ttest_data <- phase_2_merged_df %>%
+  filter(!is_catch_trial, is_consistent, rewarded) %>%
+  group_by(subj_id, chose_gems) %>% 
+  summarise(mean_conf = mean(confidence, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = mean_conf,
+    names_prefix = "chose_gems_"
+  ) %>%
+  drop_na()
+
+r_conf_ttest_data <- phase_2_merged_df %>%
+  filter(!is_catch_trial, is_consistent, rewarded, mentioned_rule) %>%
+  group_by(subj_id, chose_gems) %>% 
+  summarise(mean_conf = mean(confidence, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = mean_conf,
+    names_prefix = "chose_gems_"
+  ) %>%
+  drop_na()
+
+nr_conf_ttest_data <- phase_2_merged_df %>%
+  filter(!is_catch_trial, is_consistent, rewarded, !mentioned_rule) %>%
+  group_by(subj_id, chose_gems) %>% 
+  summarise(mean_conf = mean(confidence, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = mean_conf,
+    names_prefix = "chose_gems_"
+  ) %>%
+  drop_na()
+
+conf_test_result <- t.test(
+  conf_ttest_data$chose_gems_TRUE, 
+  conf_ttest_data$chose_gems_FALSE, 
+  paired = TRUE
+)
+
+r_conf_test_result <- t.test(
+  r_conf_ttest_data$chose_gems_TRUE, 
+  r_conf_ttest_data$chose_gems_FALSE, 
+  paired = TRUE
+)
+
+nr_conf_test_result <- t.test(
+  nr_conf_ttest_data$chose_gems_TRUE, 
+  nr_conf_ttest_data$chose_gems_FALSE, 
+  paired = TRUE
+)
+
+#rt
+rt_ttest_data <- phase_2_merged_df %>%
+  filter(!is_catch_trial, is_consistent, rewarded) %>%
+  group_by(subj_id, chose_gems) %>% 
+  summarise(median_rt = median(choice_rt, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = median_rt,
+    names_prefix = "chose_gems_"
+  ) %>%
+  drop_na()
+
+r_rt_ttest_data <- phase_2_merged_df %>%
+  filter(!is_catch_trial, is_consistent, rewarded, mentioned_rule) %>%
+  group_by(subj_id, chose_gems) %>% 
+  summarise(median_rt = median(choice_rt, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = median_rt,
+    names_prefix = "chose_gems_"
+  ) %>%
+  drop_na()
+
+nr_rt_ttest_data <- phase_2_merged_df %>%
+  filter(!is_catch_trial, is_consistent, rewarded, !mentioned_rule) %>%
+  group_by(subj_id, chose_gems) %>% 
+  summarise(median_rt = median(choice_rt, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = median_rt,
+    names_prefix = "chose_gems_"
+  ) %>%
+  drop_na()
+
+rt_test_result <- t.test(
+  rt_ttest_data$chose_gems_TRUE,
+  rt_ttest_data$chose_gems_FALSE,
+  paired=TRUE
+)
+
+r_rt_test_result <- t.test(
+  r_rt_ttest_data$chose_gems_TRUE,
+  r_rt_ttest_data$chose_gems_FALSE,
+  paired=TRUE
+)
+
+nr_rt_test_result <- t.test(
+  nr_rt_ttest_data$chose_gems_TRUE,
+  nr_rt_ttest_data$chose_gems_FALSE,
+  paired=TRUE
+)
+
+
+
+
+```
+
+The mean confidence for trials in which participants revealed gems and were correct in part 1 is `r printnum(mean(conf_ttest_data$chose_gems_TRUE))` (median = `r printnum(median(conf_ttest_data$chose_gems_TRUE))`). Mean confidence for trials in which the computer revealed gems and participants were correct in part 1 is `r printnum(mean(conf_ttest_data$chose_gems_FALSE))` (median = `r printnum(median(conf_ttest_data$chose_gems_FALSE))`). The difference between the two means are not significant `r apa_print(conf_test_result)$statistic`. 
+
+For participants who mentioned the rule, the mean confidence for trials in which participants revealed gems and were correct in part 1 is `r printnum(mean(r_conf_ttest_data$chose_gems_TRUE))` (median = `r printnum(median(r_conf_ttest_data$chose_gems_TRUE))`). Mean confidence for trials in which the computer revealed gems and participants were correct in part 1 is `r printnum(mean(r_conf_ttest_data$chose_gems_FALSE))` (median = `r printnum(median(r_conf_ttest_data$chose_gems_FALSE))`). The difference between the two means are not significant `r apa_print(r_conf_test_result)$statistic`. 
+
+For participants who did not mention the rule, the mean confidence for trials in which participants revealed gems and were correct in part 1 is `r printnum(mean(nr_conf_ttest_data$chose_gems_TRUE))` (median = `r printnum(median(nr_conf_ttest_data$chose_gems_TRUE))`). Mean confidence for trials in which the computer revealed gems and participants were correct in part 1 is `r printnum(mean(nr_conf_ttest_data$chose_gems_FALSE))` (median = `r printnum(median(nr_conf_ttest_data$chose_gems_FALSE))`). The difference between the two means are not significant `r apa_print(nr_conf_test_result)$statistic`. 
+
+### Hypothesis 11 (RT: I REVEALED VERSUS COMPUTER REVEALED): 
+
+The mean median RT for trials in which participants revealed gems and were correct in part 1 is `r printnum(mean(rt_ttest_data$chose_gems_TRUE))` (median = `r printnum(median(rt_ttest_data$chose_gems_TRUE))`). Mean median RT for trials in which the computer revealed gems and participants were correct in part 1 is `r printnum(mean(rt_ttest_data$chose_gems_FALSE))` (median = `r printnum(median(rt_ttest_data$chose_gems_FALSE))`). The difference between the two means is not significant `r apa_print(rt_test_result)$statistic`. 
+
+For participants who mentioned the rule, the mean median RT for trials in which participants revealed gems and were correct in part 1 is `r printnum(mean(r_rt_ttest_data$chose_gems_TRUE))` (median = `r printnum(median(r_rt_ttest_data$chose_gems_TRUE))`). Mean median RT for trials in which the computer revealed gems and participants were correct in part 1 is `r printnum(mean(r_rt_ttest_data$chose_gems_FALSE))` (median = `r printnum(median(r_rt_ttest_data$chose_gems_FALSE))`). The difference between the two means is marginally significant `r apa_print(r_rt_test_result)$statistic`.
+
+For participants who did not mention the rule, the mean median RT for trials in which participants revealed gems and were correct in part 1 is `r printnum(mean(nr_rt_ttest_data$chose_gems_TRUE))` (median = `r printnum(median(nr_rt_ttest_data$chose_gems_TRUE))`). Mean median RT for trials in which the computer revealed gems and participants were correct in part 1 is `r printnum(mean(nr_rt_ttest_data$chose_gems_FALSE))` (median = `r printnum(median(nr_rt_ttest_data$chose_gems_FALSE))`). The difference between the two means is not significant `r apa_print(nr_rt_test_result)$statistic`.
+
+### Hypothesis 12 (CONFIDENCE: COMPUTER VS UNCHOSEN): 
+
+We will test the null hypothesis that participants’ confidence for part 2 is equal when they choose an option that aligns with the computer’s decision in part 1 and when they choose an option that was not chosen by themselves or computer. This will be tested using a paired t-test.
+
+```{r, h12, cache=FALSE}
+
+h12_data <- phase_2_df %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    is_consistent_other = case_when(
+      !is_consistent_computer & !is_consistent ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) 
+
+conf_com <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_computer) %>%
+  summarise(mean_conf = mean(confidence))
+  
+
+r_conf_com <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_computer, mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence))
+
+nr_conf_com <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_computer, !mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence))
+
+conf_other <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_other) %>%
+  summarise(mean_conf = mean(confidence))
+
+r_conf_other <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_other, mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence))
+
+nr_conf_other <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_other, !mentioned_rule) %>%
+  summarise(mean_conf = mean(confidence))
+  
+
+conf_wide <- conf_com %>%
+  rename(conf_com = mean_conf) %>%
+  inner_join(
+    conf_other %>% rename(conf_other = mean_conf),
+    by = "subj_id"
+  )
+
+r_conf_wide <- r_conf_com %>%
+  rename(conf_com = mean_conf) %>%
+  inner_join(
+    r_conf_other %>% rename(conf_other = mean_conf),
+    by = "subj_id"
+  )
+
+nr_conf_wide <- nr_conf_com %>%
+  rename(conf_com = mean_conf) %>%
+  inner_join(
+    nr_conf_other %>% rename(conf_other = mean_conf),
+    by = "subj_id"
+  )
+
+
+t_test_result <- t.test(
+  conf_wide$conf_com,
+  conf_wide$conf_other,
+  paired = TRUE
+)
+
+r_t_test_result <- t.test(
+  r_conf_wide$conf_com,
+  r_conf_wide$conf_other,
+  paired = TRUE
+)
+
+nr_t_test_result <- t.test(
+  nr_conf_wide$conf_com,
+  nr_conf_wide$conf_other,
+  paired = TRUE
+)
+
+
+rt_com <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_computer) %>%
+  summarise(mean_rt = mean(choice_rt))
+
+r_rt_com <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_computer, mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt))
+
+nr_rt_com <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_computer, !mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt))
+
+rt_other <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_other) %>%
+  summarise(mean_rt = mean(choice_rt))
+
+r_rt_other <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_other, mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt))
+
+nr_rt_other <- h12_data %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, is_consistent_other, !mentioned_rule) %>%
+  summarise(mean_rt = mean(choice_rt))
+
+rt_wide <- rt_com %>%
+  rename(rt_com = mean_rt) %>%
+  inner_join(
+    rt_other %>% rename(rt_other = mean_rt),
+    by = "subj_id"
+  )
+
+r_rt_wide <- r_rt_com %>%
+  rename(rt_com = mean_rt) %>%
+  inner_join(
+    r_rt_other %>% rename(rt_other = mean_rt),
+    by = "subj_id"
+  )
+
+nr_rt_wide <- nr_rt_com %>%
+  rename(rt_com = mean_rt) %>%
+  inner_join(
+    nr_rt_other %>% rename(rt_other = mean_rt),
+    by = "subj_id"
+  )
+
+t_test_result_rt <- t.test(
+  rt_wide$rt_com,
+  rt_wide$rt_other,
+  paired = TRUE
+)
+
+r_t_test_result_rt <- t.test(
+  r_rt_wide$rt_com,
+  r_rt_wide$rt_other,
+  paired = TRUE
+)
+
+nr_t_test_result_rt <- t.test(
+  nr_rt_wide$rt_com,
+  nr_rt_wide$rt_other,
+  paired = TRUE
+)
+
+
+```
+
+Participants' confidence in which they chose an option that aligns with the computer’s decision in part 1 and when they choose an option that was not chosen by themselves or computer was not significantly different when tested using a paired t-test (`r apa_print(t.test(conf_wide$conf_com,conf_wide$conf_other,paired = TRUE))$statistic`). This is the case for participants who did mention the rule (`r apa_print(t.test(r_conf_wide$conf_com,r_conf_wide$conf_other,paired = TRUE))$statistic`). Similarly for participants who mentioned the rule (`r apa_print(t.test(nr_conf_wide$conf_com,nr_conf_wide$conf_other,paired = TRUE))$statistic`)
+
+### Hypothesis 12 (RT: COMPUTER VS UNCHOSEN): 
+
+Participants reaction time in which they chose an option that aligns with the computer’s decision in part 1 and when they choose an option that was not chosen by themselves or computer was not significantly different when tested using a paired t-test (`r apa_print(t_test_result_rt)$statistic`). For participants who did not mention the rule this was the case (`r apa_print(nr_t_test_result_rt)$statistic`) as well as for participants who did mention the rule (`r apa_print(r_t_test_result_rt)$statistic`). 
+
+## PLOTS
+
+```{r proportion_figure, cache=F, fig.width=8}
+hum_part1_choices <- phase_1_df %>%
+  select(subj_id, trial_num, part1_chose_gems = chose_gems)
+
+part1_trialtype <- phase_1_df %>%
+  mutate(
+    part1_type = case_when(
+      chose_gems ~ 'im_correct',
+      computer_chose_gems ~ 'com_correct',
+      chose_gems == FALSE & computer_chose_gems == FALSE ~ 'no_correct'
+    ),
+  ) %>%
+  select(subj_id, trial_num, part1_type)
+
+combined_trialtype <- phase_2_df %>%
+  left_join(part1_trialtype, by = c("subj_id", "trial_num")) %>%
+  mutate(
+    part2_type = case_when(
+      is_consistent ~ 'my_choice',
+      is_consistent_computer ~ 'com_choice',
+      !is_consistent & !is_consistent_computer ~ 'no_choice'
+    )
+  ) 
+
+im_correct_combined_trialtype <- combined_trialtype %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, part1_type == "im_correct") %>%
+  summarise(
+    mean_mychoice = mean(part2_type=='my_choice'),
+    mean_comchoice = mean(part2_type=='com_choice'),
+    mean_nochoice = mean(part2_type=='no_choice')
+  ) %>%
+  pivot_longer(
+    cols = c(mean_mychoice, mean_comchoice, mean_nochoice),
+    names_to = "choice_type",
+    values_to = "value"
+  ) %>% 
+  group_by(choice_type) %>%
+  summarise(
+    mean_value = mean(value),
+    n = n(),
+    sem = sd(value, na.rm = TRUE) / sqrt(n),
+    .groups = "drop"
+            )
+
+
+com_correct_combined_trialtype <- combined_trialtype %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, part1_type == "com_correct") %>%
+  summarise(
+    mean_mychoice = mean(part2_type=='my_choice'),
+    mean_comchoice = mean(part2_type=='com_choice'),
+    mean_nochoice = mean(part2_type=='no_choice')
+  ) %>%
+  pivot_longer(
+    cols = c(mean_mychoice, mean_comchoice, mean_nochoice),
+    names_to = "choice_type",
+    values_to = "value"
+  ) %>% 
+  group_by(choice_type) %>%
+  summarise(
+    mean_value = mean(value),
+    n = n(),
+    sem = sd(value, na.rm = TRUE) / sqrt(n),
+    .groups = "drop"
+            )
+
+no_correct_combined_trialtype <- combined_trialtype %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, part1_type == "no_correct") %>%
+  summarise(
+    mean_mychoice = mean(part2_type=='my_choice'),
+    mean_comchoice = mean(part2_type=='com_choice'),
+    mean_nochoice = mean(part2_type=='no_choice')
+  ) %>%
+  pivot_longer(
+    cols = c(mean_mychoice, mean_comchoice, mean_nochoice),
+    names_to = "choice_type",
+    values_to = "value"
+  ) %>% 
+  group_by(choice_type) %>%
+  summarise(
+    mean_value = mean(value),
+    n = n(),
+    sem = sd(value, na.rm = TRUE) / sqrt(n),
+    .groups = "drop"
+            )
+
+
+summarise_choice <- function(data, cond_label) {
+  data %>%
+    group_by(subj_id) %>%
+    filter(!is_catch_trial, part1_type == cond_label) %>%
+    summarise(
+      mean_mychoice  = mean(part2_type == 'my_choice'),
+      mean_comchoice = mean(part2_type == 'com_choice'),
+      mean_nochoice  = mean(part2_type == 'no_choice')
+    ) %>%
+    pivot_longer(
+      cols = c(mean_mychoice, mean_comchoice, mean_nochoice),
+      names_to = "choice_type",
+      values_to = "value"
+    ) %>%
+    group_by(choice_type) %>%
+    summarise(
+      condition  = cond_label,
+      mean_value = mean(value),
+      n          = n(),
+      sem        = sd(value, na.rm = TRUE) / sqrt(n),
+      .groups = "drop"
+    )
+}
+
+im_df  <- summarise_choice(combined_trialtype, "im_correct")
+com_df <- summarise_choice(combined_trialtype, "com_correct")
+no_df  <- summarise_choice(combined_trialtype, "no_correct")
+
+all_df <- bind_rows(im_df, com_df, no_df)
+
+p <- ggplot(all_df,
+            aes(x = choice_type, y = mean_value, fill = choice_type)) +
+  geom_col(position = position_dodge(width = 0.9), alpha = 0.8) +
+  geom_errorbar(aes(ymin = mean_value - sem,
+                    ymax = mean_value + sem),
+                width = 0.2, linewidth = 0.7, alpha = 0.5) +
+  facet_grid(~ condition) +  
+  labs(
+    title = "Proportion of Choice Types in Part 2 by Part 1 Choice Types",
+    x = "Chosen in Part 1 by:",
+    y = "Proportion Selected in Part 2"
+  ) +
+  scale_x_discrete(
+    labels = c(
+    mean_mychoice  = "Participant",
+    mean_comchoice = "Computer",
+    mean_nochoice  = "Neither"
+  )
+  ) + 
+  facet_grid(
+    ~ condition,
+    labeller = labeller(
+      condition = c(
+        im_correct  = "Participant Correct Trials",
+        com_correct = "Computer Correct Trials",
+        no_correct  = "Neither Correct Trials"
+      )
+    )
+  ) +
+   scale_fill_manual(
+  name = "Part 1 choice:",
+  values = c(
+    mean_mychoice  = "#ff7f0e",   
+    mean_comchoice = "#FA938E",   
+    mean_nochoice  =  "#84B0FE"  
+  ),
+  labels = c(
+    mean_mychoice  = "Participant Choice",
+    mean_comchoice = "Computer Choice",
+    mean_nochoice  = "Neither"
+  )
+)+ 
+  
+  theme_minimal() + 
+  theme(
+  axis.text.x = element_text(angle = 45, vjust = 0.8, hjust = 0.5)
+) 
+
+p
+
+mychoice_by_condition <- combined_trialtype %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, part1_type) %>%
+  summarise(
+    mean_mychoice = mean(part2_type == "my_choice"),
+    .groups = "drop"
+  ) %>%
+  filter(part1_type %in% c("com_correct", "no_correct")) %>%
+  pivot_wider(
+    names_from = part1_type,
+    values_from = mean_mychoice
+  )
+
+t_test_result <- t.test(
+  mychoice_by_condition$com_correct,
+  mychoice_by_condition$no_correct,
+  paired = TRUE
+)
+
+
+
+
+```
+```{r confidence_figure, cache=F, fig.width=8}
+summarise_confidence <- function(data, cond_label) {
+  data %>%
+    filter(!is_catch_trial, part1_type == cond_label) %>%  
+    group_by(subj_id) %>%
+    summarise(
+      conf_my   = mean(confidence[part2_type == "my_choice"],   na.rm = TRUE),
+      conf_com  = mean(confidence[part2_type == "com_choice"],  na.rm = TRUE),
+      conf_none = mean(confidence[part2_type == "no_choice"],   na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    pivot_longer(
+      cols = starts_with("conf_"),
+      names_to = "choice_type",
+      values_to = "value"
+    ) %>%
+    mutate(
+      choice_type = case_when(
+        choice_type == "conf_my"   ~ "mean_mychoice",
+        choice_type == "conf_com"  ~ "mean_comchoice",
+        choice_type == "conf_none" ~ "mean_nochoice",
+        TRUE ~ choice_type
+      ),
+      condition = cond_label
+    ) %>%
+    group_by(condition, choice_type) %>%
+    summarise(
+      mean_value = mean(value, na.rm = TRUE),
+      n = sum(!is.na(value)),                             
+      sem = sd(value, na.rm = TRUE) / sqrt(n),
+      .groups = "drop"
+    )
+}
+
+im_df  <- summarise_confidence(combined_trialtype, "im_correct")
+com_df <- summarise_confidence(combined_trialtype, "com_correct")
+no_df  <- summarise_confidence(combined_trialtype, "no_correct")
+
+all_df <- bind_rows(im_df, com_df, no_df)
+
+p <- ggplot(all_df,
+            aes(x = choice_type, y = mean_value, fill = choice_type)) +
+  geom_col(position = position_dodge(width = 0.9),
+           alpha = 0.8) +
+  geom_errorbar(aes(ymin = mean_value - sem, ymax = mean_value + sem),
+                width = 0.2, linewidth = 0.7, position = position_dodge(width = 0.9), alpha = 0.5) +
+  facet_grid(~ condition,
+             labeller = labeller(
+               condition = c(
+                 im_correct  = "Participant Correct Trials",
+                 com_correct = "Computer Correct Trials",
+                 no_correct  = "Neither Correct Trials"
+               )
+             )) +
+  scale_x_discrete(
+    labels = c(
+      mean_mychoice  = "Participant",
+      mean_comchoice = "Computer",
+      mean_nochoice  = "Neither"
+    )
+  ) +
+   scale_fill_manual(
+  name = "Part 1 choice:",
+  values = c(
+    mean_mychoice  = "#ff7f0e",   
+    mean_comchoice = "#FA938E",   
+    mean_nochoice  =  "#84B0FE"  
+  ),
+  labels = c(
+    mean_mychoice  = "Participant Choice",
+    mean_comchoice = "Computer Choice",
+    mean_nochoice  = "Neither"
+  )
+)+
+  labs(
+    title = "Mean Confidence by Part 2 Choice by Part 1 Choice",
+    x = "Chosen in Part 1 by:",
+    y = "Mean Confidence"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 0.8, hjust = 0.5)
+  )
+
+p
+
+
+```
+
+
+```{r choice_rt_figure, cache=F, fig.width=8}
+
+summarise_choice_rt <- function(data, cond_label) {
+  data %>%
+    filter(!is_catch_trial, part1_type == cond_label) %>%  
+    group_by(subj_id) %>%
+    summarise(
+      rt_my   = median(choice_rt[part2_type == "my_choice"],   na.rm = TRUE),
+      rt_com  = median(choice_rt[part2_type == "com_choice"],  na.rm = TRUE),
+      rt_none = median(choice_rt[part2_type == "no_choice"],   na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    pivot_longer(
+      cols = starts_with("rt_"),
+      names_to = "choice_type",
+      values_to = "value"
+    ) %>%
+    mutate(
+      choice_type = case_when(
+        choice_type == "rt_my"   ~ "mean_mychoice",
+        choice_type == "rt_com"  ~ "mean_comchoice",
+        choice_type == "rt_none" ~ "mean_nochoice",
+        TRUE ~ choice_type
+      ),
+      condition = cond_label
+    ) %>%
+    group_by(condition, choice_type) %>%
+    summarise(
+      mean_value = mean(value, na.rm = TRUE),
+      n = sum(!is.na(value)),                             
+      sem = sd(value, na.rm = TRUE) / sqrt(n),
+      .groups = "drop"
+    )
+}
+
+im_df  <- summarise_choice_rt(combined_trialtype, "im_correct")
+com_df <- summarise_choice_rt(combined_trialtype, "com_correct")
+no_df  <- summarise_choice_rt(combined_trialtype, "no_correct")
+
+all_df <- bind_rows(im_df, com_df, no_df)
+
+p <- ggplot(all_df,
+            aes(x = choice_type, y = mean_value, fill = choice_type)) +
+  geom_col(position = position_dodge(width = 0.9),
+           alpha = 0.8) +
+  geom_errorbar(aes(ymin = mean_value - sem, ymax = mean_value + sem),
+                width = 0.2, linewidth = 0.7, position = position_dodge(width = 0.9), alpha = 0.5) +
+  facet_grid(~ condition,
+             labeller = labeller(
+               condition = c(
+                 im_correct  = "Participant Correct Trials",
+                 com_correct = "Computer Correct Trials",
+                 no_correct  = "Neither Correct Trials"
+               )
+             )) +
+  scale_x_discrete(
+    labels = c(
+      mean_mychoice  = "Participant",
+      mean_comchoice = "Computer",
+      mean_nochoice  = "Neither"
+    )
+  ) +
+  scale_fill_manual(
+  name = "Part 1 choice:",
+  values = c(
+    mean_mychoice  = "#ff7f0e",   
+    mean_comchoice = "#FA938E",   
+    mean_nochoice  =  "#84B0FE"  
+  ),
+  labels = c(
+    mean_mychoice  = "Participant Choice",
+    mean_comchoice = "Computer Choice",
+    mean_nochoice  = "Neither"
+  )
+) +
+  labs(
+    title = "Median RT by Part 2 Choice by Part 1 Choice",
+    x = "Chosen in Part 1 by:",
+    y = "Median RT (ms)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 0.8, hjust = 0.5)
+  )
+
+p
+
+```
+
+
+
+```{r reconstruction_accuracy,  cache=F, fig.width=8}
+
+part1_choices <- phase_1_df %>%
+  select(subj_id, trial_num, part1_chose_gems = chose_gems)
+
+phase_2_merged_df <- phase_2_df %>%
+  left_join(part1_choices, by = c("subj_id", "trial_num"))
+
+data_for_test <- phase_2_merged_df %>%
+  filter(!is_catch_trial, !is.na(part1_chose_gems))
+
+long_paired_data_all <- data_for_test %>%
+  group_by(subj_id, part1_chose_gems) %>%
+  summarise(mean_accuracy = mean(is_consistent, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    phase_1_choice = factor(part1_chose_gems, labels = c("Did Not Choose Gems", "Chose Gems")),
+    group = "all"
+  )
+
+r_long_paired_data <- data_for_test %>%
+  filter(mentioned_rule) %>%
+  group_by(subj_id, part1_chose_gems) %>%
+  summarise(mean_accuracy = mean(is_consistent, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    phase_1_choice = factor(part1_chose_gems, labels = c("Did Not Choose Gems", "Chose Gems")),
+    group = "r_mentioned"
+  )
+
+nr_long_paired_data <- data_for_test %>%
+  filter(!mentioned_rule) %>%
+  group_by(subj_id, part1_chose_gems) %>%
+  summarise(mean_accuracy = mean(is_consistent, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    phase_1_choice = factor(part1_chose_gems, labels = c("Did Not Choose Gems", "Chose Gems")),
+    group = "nr_not_mentioned"
+  )
+
+plot_data_summary_all <- long_paired_data_all %>%
+  group_by(group, phase_1_choice) %>%
+  summarise(
+    grand_mean_accuracy = mean(mean_accuracy, na.rm = TRUE),
+    n = n(),
+    sem = sd(mean_accuracy, na.rm = TRUE) / sqrt(n),
+    .groups = "drop"
+  )
+
+r_plot_data_summary <- r_long_paired_data %>%
+  group_by(group, phase_1_choice) %>%
+  summarise(
+    grand_mean_accuracy = mean(mean_accuracy, na.rm = TRUE),
+    n = n(),
+    sem = sd(mean_accuracy, na.rm = TRUE) / sqrt(n),
+    .groups = "drop"
+  )
+
+nr_plot_data_summary <- nr_long_paired_data %>%
+  group_by(group, phase_1_choice) %>%
+  summarise(
+    grand_mean_accuracy = mean(mean_accuracy, na.rm = TRUE),
+    n = n(),
+    sem = sd(mean_accuracy, na.rm = TRUE) / sqrt(n),
+    .groups = "drop"
+  )
+
+plot_data_summary <- bind_rows(plot_data_summary_all,
+                               r_plot_data_summary,
+                               nr_plot_data_summary) %>%
+  mutate(group = factor(group, levels = c("all", "r_mentioned", "nr_not_mentioned")))
+
+long_subject_all <- long_paired_data_all
+long_subject_r   <- r_long_paired_data
+long_subject_nr  <- nr_long_paired_data
+
+y_limits <- c(0, 1)
+
+build_group_plot <- function(summary_df, subject_df, plot_title, bar_color) {
+  ggplot(summary_df, aes(x = phase_1_choice, y = grand_mean_accuracy)) +
+    geom_line(data = subject_df,
+              aes(x = phase_1_choice, y = mean_accuracy, group = subj_id),
+              color = "gray70", alpha = 0.4, inherit.aes = FALSE) +
+    geom_point(data = subject_df,
+               aes(x = phase_1_choice, y = mean_accuracy, group = subj_id),
+               color = "gray70", alpha = 0.4, inherit.aes = FALSE) +
+    # bars
+    geom_bar(stat = "identity", width = 0.6, fill = bar_color) +
+    # error bars
+    geom_errorbar(aes(ymin = grand_mean_accuracy - sem, ymax = grand_mean_accuracy + sem),
+                  width = 0.2, color = "black") +
+    labs(title = plot_title,
+         x = "Choice in Phase 1",
+         y = "Mean Phase 2 Accuracy") +
+    scale_y_continuous(limits = y_limits, expand = c(0, 0)) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          plot.title = element_text(size = 11, face = "bold"))
+}
+
+# --- create each plot ---
+plot_all <- build_group_plot(plot_data_summary_all, long_subject_all,
+                             "All participants", "#4C72B0")
+
+plot_r <- build_group_plot(r_plot_data_summary, long_subject_r,
+                           "Position mentioned", "#55A868")
+
+plot_nr <- build_group_plot(nr_plot_data_summary, long_subject_nr,
+                            "Position NOT mentioned", "#C44E52")
+
+print(plot_all)
+print(plot_r)
+print(plot_nr)
+
+plot_data_paired <- data_for_test %>%
+  group_by(subj_id, mentioned_rule, part1_chose_gems) %>%
+  summarise(recon_acc = mean(is_consistent, na.rm = TRUE), .groups = "drop")
+
+group_summary_new <- plot_data_paired %>%
+  group_by(mentioned_rule, part1_chose_gems) %>%
+  summarise(
+    m = mean(recon_acc, na.rm = TRUE),
+    se = sd(recon_acc, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(p1_label = ifelse(part1_chose_gems, "Part1: correct", "Part1: incorrect"),
+         p1_label = factor(p1_label, levels = c("Part1: incorrect","Part1: correct")))
+
+plot_pairs_new <- plot_data_paired %>%
+  mutate(p1_label = ifelse(part1_chose_gems, "Part1: correct", "Part1: incorrect")) %>%
+  mutate(p1_label = factor(p1_label, levels = c("Part1: incorrect","Part1: correct")))
+
+library(scales)
+
+p <- ggplot() +
+  geom_line(data = plot_pairs_new, aes(x = p1_label, y = recon_acc, group = subj_id),
+            color = "grey70", alpha = 0.35, size = 0.4) +
+  geom_point(data = plot_pairs_new, aes(x = p1_label, y = recon_acc),
+             color = "grey40", alpha = 0.6, position = position_dodge(width = 0.4), size = 1.7) +
+  geom_point(data = group_summary_new, aes(x = p1_label, y = m, color = mentioned_rule),
+             position = position_dodge(width = 0.4), size = 3) +
+  geom_errorbar(data = group_summary_new, aes(x = p1_label, ymin = m - se, ymax = m + se, color = mentioned_rule),
+                width = 0.12, position = position_dodge(width = 0.4), size = 0.7) +
+  facet_wrap(~ mentioned_rule, nrow = 1,
+             labeller = as_labeller(c("FALSE" = "Did NOT mention position", "TRUE" = "Mentioned position"))) +
+  scale_y_continuous(limits = c(0.25,1), breaks = seq(0,1,0.25), labels = percent_format(accuracy = 1)) +
+  labs(x = NULL,
+       y = "Reconstruction accuracy (Part 2)",
+       title = "Reconstruction accuracy in Part 2 by Part 1 guess accuracy",
+       color = "Mentioned rule") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text = element_text(face = "bold"),
+        plot.title = element_text(size = 12, face = "bold"),
+        plot.subtitle = element_text(size = 10))
+
+
+print(p)
+
+
+
+```
+
+
+
+
+```{r probability,  cache=F, fig.width=8}
+
+
+h6_viz_data <- is_not_consistent_chosegems_part1 %>%
+  # Create trial bins
+  mutate(
+    trial_bin = cut(
+      trial_num,
+      breaks = c(0, 10, 20, 30, 40, 50),
+      labels = c("1-10", "11-20", "21-30", "31-40", "41-50")
+    )
+  ) %>%
+  
+  group_by(trial_bin, mentioned_rule, subj_id) %>%
+  summarise(
+    n = n(),
+    prob_stones = mean(chose_onlystones_part2, na.rm = TRUE),
+    se = sqrt(prob_stones * (1 - prob_stones) / n)
+  ) %>%
+  mutate(
+    ci_lower = prob_stones - 1.96 * se,
+    ci_upper = prob_stones + 1.96 * se
+  ) %>%
+  ungroup() %>%
+  mutate(
+    Group = ifelse(mentioned_rule, "Position mentioned", "Position NOT mentioned")
+  ) 
+
+
+library(dplyr)
+library(ggplot2)
+
+h6_subject_bin <- is_not_consistent_chosegems_part1 %>%
+  mutate(
+    trial_bin = cut(
+      trial_num,
+      breaks = c(0, 10, 20, 30, 40, 50),
+      labels = c("1-10", "11-20", "21-30", "31-40", "41-50"),
+      right = TRUE
+    )
+  ) %>%
+  group_by(subj_id, trial_bin, mentioned_rule) %>%
+  summarise(
+    prob_stones = mean(chose_onlystones_part2, na.rm = TRUE),
+    n_trials = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Group = ifelse(mentioned_rule, "Position mentioned", "Position NOT mentioned"),
+    trial_bin = factor(trial_bin, levels = c("1-10","11-20","21-30","31-40","41-50"))
+  )
+
+summary_df <- h6_subject_bin %>%
+  group_by(trial_bin, Group) %>%
+  summarise(
+    mean_prob = mean(prob_stones, na.rm = TRUE),
+    se = sd(prob_stones, na.rm = TRUE) / sqrt(n()),
+    n_subj = n(),
+    .groups = "drop"
+  )
+
+
+pd <- position_dodge(width = 0.75)
+
+ggplot(h6_subject_bin, aes(x = trial_bin, y = prob_stones, fill = Group, group = Group)) +
+  geom_jitter(aes(color = Group), 
+              position = position_jitterdodge(jitter.width = 0.12, dodge.width = 0.75), 
+              size = 1.6, alpha = 0.6, show.legend = FALSE) +
+  geom_errorbar(data = summary_df,
+                aes(x = trial_bin, y = mean_prob, ymin = mean_prob - se, ymax = mean_prob + se, group = Group),
+                width = 0.18,
+                position = pd,
+                color = "black",
+                linewidth = 0.8) +
+  geom_line(data = summary_df,
+            aes(x = trial_bin, y = mean_prob, color = Group, group = Group),
+            position = pd,
+            linewidth = 0.9,
+            alpha = 0.8) +
+  geom_point(data = summary_df,
+             aes(x = trial_bin, y = mean_prob, group = Group),
+             position = pd,
+             shape = 23, size = 3, fill = "white", color = "black") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black", linewidth = 0.7) +
+  labs(
+    title = "Exp. 2: Subject-level probability of choosing stones by trial bin",
+    x = "Trial bin",
+    y = "Probability of choosing stones (per subject)",
+    fill = "Group"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+
+h6_subject_bin_stonehigher <- is_not_consistent_chosegems_part1 %>%
+  mutate(
+    trial_bin = cut(
+      trial_num,
+      breaks = c(0, 10, 20, 30, 40, 50),
+      labels = c("1-10", "11-20", "21-30", "31-40", "41-50"),
+      right = TRUE
+    )
+  ) %>%
+  group_by(subj_id, trial_bin, mentioned_rule) %>%
+  filter(stone_higher_than_other) %>%
+  summarise(
+    prob_stones = mean(chose_onlystones_part2, na.rm = TRUE),
+    n_trials = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Group = ifelse(mentioned_rule, "Position mentioned", "Position NOT mentioned"),
+    trial_bin = factor(trial_bin, levels = c("1-10","11-20","21-30","31-40","41-50"))
+  )
+
+summary_df_stonehigher <- h6_subject_bin_stonehigher %>%
+  group_by(trial_bin, Group) %>%
+  summarise(
+    mean_prob = mean(prob_stones, na.rm = TRUE),
+    se = sd(prob_stones, na.rm = TRUE) / sqrt(n()),
+    n_subj = n(),
+    .groups = "drop"
+  )
+
+ggplot(h6_subject_bin_stonehigher, aes(x = trial_bin, y = prob_stones, fill = Group, group = Group)) +
+  geom_jitter(aes(color = Group), 
+              position = position_jitterdodge(jitter.width = 0.12, dodge.width = 0.75), 
+              size = 1.6, alpha = 0.6, show.legend = FALSE) +
+  geom_errorbar(data = summary_df_stonehigher,
+                aes(x = trial_bin, y = mean_prob, ymin = mean_prob - se, ymax = mean_prob + se, group = Group),
+                width = 0.18,
+                position = pd,
+                color = "black",
+                linewidth = 0.8) +
+  geom_line(data = summary_df_stonehigher,
+            aes(x = trial_bin, y = mean_prob, color = Group, group = Group),
+            position = pd,
+            linewidth = 0.9,
+            alpha = 0.8) +
+  geom_point(data = summary_df_stonehigher,
+             aes(x = trial_bin, y = mean_prob, group = Group),
+             position = pd,
+             shape = 23, size = 3, fill = "white", color = "black") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black", linewidth = 0.7) +
+  labs(
+    title = "Exp. 2: Subject-level probability of choosing stones by trial bin (stone higher)",
+    x = "Trial bin",
+    y = "Probability of choosing stones (per subject)",
+    fill = "Group"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+library(ggplot2)
+library(dplyr)
+
+h6_viz_data <- is_not_consistent_chosegems_part1 %>%
+
+  group_by(subj_id, mentioned_rule) %>%
+
+  summarise(
+    n = n(),
+    prob_stones = mean(chose_onlystones_part2, na.rm = TRUE),
+    se = sqrt(prob_stones * (1 - prob_stones) / n) # Std. Error of a proportion
+  ) %>%
+  
+  mutate(
+    ci_lower = prob_stones - 1.96 * se,
+    ci_upper = prob_stones + 1.96 * se
+  ) %>%
+  
+
+  ungroup() %>%
+  mutate(
+    Group = ifelse(mentioned_rule, "Position mentioned", "Position NOT mentioned")
+  )
+
+h6_alltrial <- is_not_consistent_chosegems_part1 %>%
+  group_by(subj_id) %>%
+  summarise(
+    mean_prob_stones = mean(chose_onlystones_part2, na.rm = TRUE),
+    mentioned_rule  = unique(mentioned_rule)
+  ) 
+
+
+ggplot(h6_alltrial, aes(x = mentioned_rule, y = mean_prob_stones, fill = mentioned_rule)) +
+  geom_boxplot(alpha = 0.5, width = 0.6, outlier.shape = NA, color = "gray40") +
+
+  stat_summary(fun = mean, geom = "point", 
+               shape = 23, size = 4, fill = "white", color = "black") +
+  
+  stat_summary(fun.data = mean_se, geom = "errorbar", 
+               width = 0.2, color = "black", linewidth = 0.8) +
+  
+  geom_jitter(width = 0.1, alpha = 0.5, color = "gray50") +
+  
+  labs(
+    title = "Probability of Choosing Stones by Rule Mention",
+    x = "",
+    y = "Probability of Choosing Stones",
+    fill = "Group"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+## Exploratory analysis 
+
+### estimates of own performance
+
+
+```{r correlation, include = FALSE, cache=F}
+## Correlation between estimate and actual performance 
+# part 1
+
+computer_accuracy <- raw_df %>%
+  select(subj_id, trial_num, number_correct_part1_computer_slider, phase)
+
+part_1_data <- phase_1_df %>%
+  left_join(computer_accuracy, by=c('subj_id','trial_num'))%>%
+  filter( phase == 'part1') %>%
+  mutate(
+    rewarded = case_when(
+      chose_gems | computer_chose_gems ~ TRUE,
+      TRUE ~ FALSE
+    )
+  )
+
+
+total_chose_gems_part1 <- part_1_data %>%
+  group_by(subj_id) %>%
+  
+  summarise(total_gems = sum(chose_gems, na.rm = TRUE)) 
+
+total_rewarded_part1 <- part_1_data %>%
+  group_by(subj_id) %>%
+  
+  summarise(total_reward = sum(rewarded, na.rm=T))
+
+computer_total_gems <- part_1_data %>%
+  group_by(subj_id) %>% 
+  
+  summarise(total_gems = sum(computer_chose_gems, na.rm=T))
+
+estimate_chose_gems_part1 <- phase_1_df %>% 
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part1, na.rm = TRUE))
+
+estimate_computer_chose_gems <- part_1_data %>%
+  group_by(subj_id) %>%
+  mutate(number_correct_part1_computer_slider = as.numeric(number_correct_part1_computer_slider)) %>%
+  summarise(mean_estimate = mean(number_correct_part1_computer_slider), na.rm=T)
+
+correlation_data_chose_gems <- inner_join(total_chose_gems_part1, 
+                               estimate_chose_gems_part1, 
+                               by = "subj_id")
+
+correlation_data_rewarded <- inner_join(total_rewarded_part1, estimate_chose_gems_part1, by = 'subj_id')
+
+correlation_data_computer <- inner_join(computer_total_gems, estimate_computer_chose_gems, by='subj_id') 
+
+cor_part1_chose_gems <- cor.test(x = correlation_data_chose_gems$total_gems, 
+         y = correlation_data_chose_gems$mean_estimate, 
+         method = "pearson")
+
+cor_part1_rewarded  <- cor.test(x = correlation_data_rewarded$total_reward,
+                                y = correlation_data_rewarded$mean_estimate,
+                                method = "pearson")
+
+cor_part1_computer <- cor.test(x = correlation_data_computer$total_gems,
+                               y = correlation_data_computer$mean_estimate,
+                               method = "pearson")
+
+
+
+
+# part 2
+
+total_is_consistent_part2 <- phase_2_df %>%
+  group_by(subj_id) %>%
+  summarise(consistent = sum(is_consistent, na.rm = TRUE)) 
+
+estimate_chose_gems_part2 <- phase_2_df %>% 
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part2, na.rm = TRUE))
+
+correlation_data <- inner_join(total_is_consistent_part2, 
+                               estimate_chose_gems_part2, 
+                               by = "subj_id")
+
+cor_part2 <- cor.test(x = correlation_data$consistent, 
+         y = correlation_data$mean_estimate, 
+         method = "pearson")
+
+
+# correlation bbetween probability of choosing gems in part 2 and part 1 estimate 
+
+total_chose_gems_part2 <- phase_2_df %>% 
+  group_by(subj_id) %>% 
+  summarise(chose_gems = sum(chose_gems, na.rm = T))
+
+cor_part2_part1_data <- inner_join(total_chose_gems_part2,
+                                   estimate_chose_gems_part1,
+                                   by = "subj_id"
+                            )
+
+cor_part2_part1 <- cor.test(x = cor_part2_part1_data$chose_gems,
+                            y = cor_part2_part1_data$mean_estimate,
+                            method = "pearson")
+
+
+
+```
+
+
+People cannot estimate performance in part 1 (estimating the number of trials in which **they** revealed gems); Pearson correlation `r sprintf("r = %.2f, 95%% CI [%.2f, %.2f]", cor_part1_chose_gems$estimate, cor_part1_chose_gems$conf.int[1], cor_part1_chose_gems$conf.int[2])` p = `r printp(cor_part1_chose_gems$p.value)`. However, people can estimate the number of trials in which they were rewarded; Pearson correlation `r sprintf("r = %.2f, 95%% CI [%.2f, %.2f]", cor_part1_rewarded$estimate, cor_part1_rewarded$conf.int[1], cor_part1_rewarded$conf.int[2])` p `r printp(cor_part1_rewarded$p.value)`. When asked to estimate the performance of the computer, participants fail to do so accurately; Pearson correlation `r sprintf("r = %.2f, 95%% CI [%.2f, %.2f]", cor_part1_computer$estimate, cor_part1_computer$conf.int[1], cor_part1_computer$conf.int[2])` p = `r printp(cor_part1_computer$p.value)`.
+
+In Part 2, they are able to estimate their performance in part 2; Pearson correlation `r sprintf("r = %.2f, 95%% CI [%.2f, %.2f]", cor_part2$estimate,cor_part2$conf.int[1], cor_part2$conf.int[2])` p `r printp(cor_part2$p.value)`. 
+
+Looking at the correlation between choosing gems in part 2 and the estimate for part 1; Pearson correlation `r sprintf("r = %.2f, 95%% CI [%.2f, %.2f]", cor_part2_part1$estimate,cor_part2_part1$conf.int[1], cor_part2_part1$conf.int[2])` p = `r printp(cor_part2_part1$p.value)`.
+
+
+
+
+
+```{r correlation_plots,  cache=F, fig.width=8}
+library(dplyr)
+library(ggplot2)
+library(broom)
+
+theme_set(theme_minimal(base_size = 13))
+
+plot_correlation_fixed <- function(df, x_col, y_col, x_lab, y_lab, title) {
+  df2 <- df %>%
+    select({{x_col}}, {{y_col}}) %>%
+    rename(x = 1, y = 2) %>%
+    filter(is.finite(x), is.finite(y))
+  if (nrow(df2) < 2) stop("Not enough observations to compute correlation for: ", title)
+  ct <- cor.test(df2$x, df2$y, method = "pearson")
+  r_val <- unname(ct$estimate)
+  p_val <- ct$p.value
+  n_val <- nrow(df2)
+
+  p <- ggplot(df2, aes(x = x, y = y)) +
+    geom_point(alpha = 0.7, size = 2) +
+    geom_abline(slope =1, intercept = 0)+
+    geom_smooth(method = "lm", se = FALSE, color = "steelblue", linewidth = 0.8) +
+    labs(title = title, x = x_lab, y = y_lab) +
+    coord_cartesian(xlim = c(0, 50), ylim = c(0, 50)) + 
+    annotate("text", x = Inf, y = Inf,
+             label = sprintf("r = %.2f\np = %.3g\nn = %d", r_val, p_val, n_val),
+             hjust = 1.05, vjust = 1.1, size = 3.6)
+  list(plot = p, cor.test = ct, data = df2)
+}
+
+total_chose_gems_part1 <- part_1_data %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(total_gems = sum(chose_gems, na.rm = TRUE), .groups = "drop")
+
+estimate_chose_gems_part1 <- phase_1_df %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part1, na.rm = TRUE), .groups = "drop")
+
+corr_df_1 <- inner_join(total_chose_gems_part1, estimate_chose_gems_part1, by = "subj_id") %>% drop_na()
+
+res_part1_chose <- plot_correlation_fixed(corr_df_1, total_gems, mean_estimate,
+                                    x_lab = "Total times participant chose gems (part1)",
+                                    y_lab = "Mean estimate (part1)",
+                                    title = "Part1: Participant chosen gems vs estimate")
+print(res_part1_chose$plot)
+print(res_part1_chose$cor.test)
+
+total_rewarded_part1 <- part_1_data %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(total_reward = sum(rewarded, na.rm = TRUE), .groups = "drop")
+
+corr_df_2 <- inner_join(total_rewarded_part1, estimate_chose_gems_part1, by = "subj_id") %>% drop_na()
+
+res_part1_reward <- plot_correlation_fixed(corr_df_2, total_reward, mean_estimate,
+                                     x_lab = "Total rewarded trials (part1)",
+                                     y_lab = "Mean estimate (part1)",
+                                     title = "Part1: Rewarded trials vs estimate")
+print(res_part1_reward$plot)
+print(res_part1_reward$cor.test)
+
+computer_total_gems <- part_1_data %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(total_gems = sum(computer_chose_gems, na.rm = TRUE), .groups = "drop")
+
+computer_estimate_per_subj <- part_1_data %>%
+  group_by(subj_id) %>%
+  summarise(mean_computer_estimate = mean(as.numeric(number_correct_part1_computer_slider), na.rm = TRUE), .groups = "drop")
+
+corr_df_3 <- inner_join(computer_total_gems, computer_estimate_per_subj, by = "subj_id") %>% drop_na()
+
+res_part1_computer <- plot_correlation_fixed(corr_df_3, total_gems, mean_computer_estimate,
+                                      x_lab = "Computer: total gem reveals (part1)",
+                                      y_lab = "Computer mean estimate (slider)",
+                                      title = "Part1: Computer gem reveals vs computer estimate")
+print(res_part1_computer$plot)
+print(res_part1_computer$cor.test)
+
+
+total_chose_gems_part2 <- phase_2_df %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(consistent = sum(is_consistent, na.rm = TRUE), .groups = "drop")
+
+estimate_chose_gems_part2 <- phase_2_df %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part2, na.rm = TRUE), .groups = "drop")
+
+corr_df_4 <- inner_join(total_chose_gems_part2, estimate_chose_gems_part2, by = "subj_id") %>% drop_na()
+
+res_part2 <- plot_correlation_fixed(corr_df_4, consistent, mean_estimate,
+                             x_lab = "Total consistent choices (part2)",
+                             y_lab = "Mean estimate (part2)",
+                             title = "Part2: Consistency vs estimate")
+print(res_part2$plot)
+print(res_part2$cor.test)
+
+total_chose_gems_part2 <- phase_2_df %>% 
+  group_by(subj_id) %>% 
+  summarise(chose_gems = sum(chose_gems, na.rm = T))
+
+cor_part2_part1_data <- inner_join(total_chose_gems_part2,
+                                   estimate_chose_gems_part1,
+                                   by = "subj_id"
+                            )
+
+
+
+res_part2_part1 <- plot_correlation_fixed(
+  cor_part2_part1_data,
+  chose_gems,
+  mean_estimate,
+  x_lab = "Total consistent choices (part2)",
+  y_lab = "Mean estimate (part1)",
+  title = "Part2: Consistency vs Part1 mean estimate"
+)
+
+print(res_part2_part1$plot)
+print(res_part2_part1$cor.test)
+
+
+
+```
+
+
+### Effect of numbers on choice
+
+```{r higherorlower, include = FALSE, cache=F}
+
+
+higher_df_exp3 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  ) 
+
+model_exp3 <- glmer(
+  higher ~ 1 + (1 | subj_id),
+  data = higher_df_exp3,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"))
+
+p_higher_exp3 <- higher_df_exp3 %>% group_by(subj_id) %>% summarise(mean_higher = mean(higher)) %>% pull(mean_higher) %>% mean(na.rm=T)
+
+p_mean_exp3 <- two_parts_df_exp3 %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position == "middle" ~ middle_number,
+      response_position == "left" ~ left_number,
+      response_position == "right" ~ right_number
+    )
+  ) %>%
+  summarise(mean_num_chosen = mean(num_chosen)) %>%
+  mutate(diff = mean_num_chosen - 3)
+
+
+
+```
+
+ppts in exp. 3, mean chosen number `r p_mean_exp3 %>% pull(mean_num_chosen) %>% mean() %>% printnum()`. t-test against 3, `r apa_print(t.test(p_mean_exp3$diff))$statistic`
+
+
+In exp. 2 p(higher_number) = = `r round(plogis(fixef(model_exp3)[1]), 2)` (β = `r printnum(round(fixef(model_exp3)[1], 2))`, 
+SE = `r printnum(round(summary(model_exp3)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(model_exp3)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(model_exp3)$coefficients[1, "Pr(>|z|)"])`) 
+
+
+```{r age,  cache=F, fig.width=8}
+library(dplyr)
+library(ggplot2)
+
+# Accuracy
+participant_accuracy_1 <- merged_data %>%
+  filter(phase == 'part1', !is_catch_trial) %>%
+  group_by(`Participant id`, Age) %>%
+  summarise(participant_acc = mean(chose_gems), .groups = 'drop')
+
+participant_accuracy_2 <- merged_data %>%
+  filter(phase == 'part2', !is_catch_trial) %>%
+  group_by(`Participant id`, Age) %>%
+  summarise(participant_acc = mean(is_consistent), .groups = 'drop')
+
+age_avoid_1 <- merged_data %>%
+  filter(phase == 'part1', !is_catch_trial) %>%
+  group_by(`Participant id`, Age) %>%
+  summarise(participant_avoid = mean(chose_onlystones), .groups = 'drop')
+
+age_avoid_2 <- merged_data %>%
+  filter(phase == 'part2', !is_catch_trial) %>%
+  group_by(`Participant id`, Age) %>%
+  summarise(participant_avoid = mean(chose_onlystones), .groups = 'drop')
+
+age_breaks <- c(17, 22, 27, 32, 37, 42, 47, 52, 57, 62, 67, 72, 77, Inf)
+age_labels <- c("18-22", "23-27", "28-32", "33-37", "38-42", "43-47",
+                "48-52", "53-57", "58-62", "63-67", "68-72", "73-77", "78+")
+
+combined_participant_data <- bind_rows(
+  participant_accuracy_1 %>% mutate(Condition = "Part 1"),
+  participant_accuracy_2 %>% mutate(Condition = "Part 2")
+)
+
+combined_age_summary <- combined_participant_data %>%
+  mutate(
+    Age = as.numeric(as.character(Age)),
+    AgeBin = cut(Age, breaks = age_breaks, labels = age_labels, right = TRUE, ordered_result = TRUE)
+  ) %>%
+  filter(!is.na(AgeBin)) %>%
+  group_by(AgeBin, Condition) %>% 
+  summarise(
+    mean_accuracy = mean(participant_acc),
+    se = sd(participant_acc) / sqrt(n()),
+    .groups = 'drop'
+  )
+
+ggplot(combined_age_summary, aes(x = AgeBin, 
+                                 y = mean_accuracy, 
+                                 group = Condition, 
+                                 color = Condition)) +
+  geom_line(linewidth = 1.2, position = position_dodge(width = 0.3)) +
+  geom_point(size = 3, position = position_dodge(width = 0.3)) +
+  geom_errorbar(
+    aes(ymin = mean_accuracy - se, ymax = mean_accuracy + se),
+    width = 0.25, linewidth = 0.8, position = position_dodge(width = 0.3)
+  ) +
+  scale_color_manual(values = c("Part 1" = "blue", "Part 2" = "red")) +
+  
+  labs(
+    title = "Mean Participant Accuracy by Age Bin",
+    x = "Age Bin",
+    y = "Mean Accuracy",
+    color = "Phase" 
+  ) +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+combined_avoid_data <- bind_rows(
+  age_avoid_1 %>% mutate(Condition = "Part 1"),
+  age_avoid_2 %>% mutate(Condition = "Part 2")
+)
+
+combined_age_summary_avoid <- combined_avoid_data %>%
+  mutate(
+    Age = as.numeric(as.character(Age)),
+    AgeBin = cut(Age, breaks = age_breaks, labels = age_labels, right = TRUE, ordered_result = TRUE)
+  ) %>%
+  filter(!is.na(AgeBin)) %>%
+  group_by(AgeBin, Condition) %>%
+  summarise(
+    mean_avoid = mean(participant_avoid), 
+    se = sd(participant_avoid) / sqrt(n()),
+    .groups = 'drop'
+  )
+
+ggplot(combined_age_summary_avoid, aes(x = AgeBin, 
+                                       y = mean_avoid, 
+                                       group = Condition, 
+                                       color = Condition)) +
+  geom_line(linewidth = 1.2, position = position_dodge(width = 0.3)) +
+  geom_point(size = 3, position = position_dodge(width = 0.3)) +
+  geom_errorbar(
+    aes(ymin = mean_avoid - se, ymax = mean_avoid + se), 
+    width = 0.25, linewidth = 0.8, position = position_dodge(width = 0.3)
+  ) +
+  scale_color_manual(values = c("Part 1" = "blue", "Part 2" = "red")) +
+  
+  labs(
+    title = "Mean Participant Avoidance by Age Bin",
+    x = "Age Bin",
+    y = "Mean Avoidance", 
+    color = "Phase"
+  ) +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+participant_age_data <- merged_data %>%
+  mutate(Age_numeric = as.numeric(as.character(Age))) %>%
+  filter(!is.na(Age_numeric)) %>%
+  distinct(`Participant id`, Age_numeric)
+
+conditions <- phase_1_df %>%
+  ungroup() %>% 
+  distinct(subj_id, stoneposition) %>% 
+  count(stoneposition)
+
+print(conditions)
+  
+
+ggplot(participant_age_data, aes(x = Age_numeric)) +
+  geom_histogram(binwidth = 5, fill = "cornflowerblue", color = "white", alpha = 0.9, boundary = 0) +
+  labs(
+    title = "Distribution of Participant Age",
+    x = "Age",
+    y = "Frequency (Count of Participants)" # Updated label
+  ) +
+  theme_minimal()
+
+
+```
+```{r agebias, cache=F, fig.width=8}
+library(dplyr)
+library(ggplot2)
+
+correlated_data <- inner_join(
+  phase_1_acc,
+  phase_2_acc,
+  by = "subj_id",
+  suffix = c("_p1", "_p2") 
+)
+
+correlation_test <- cor.test(
+  ~ acc_p1 + acc_p2, 
+  data = correlated_data
+)
+
+print(correlation_test)
+
+ggplot(correlated_data, aes(x = acc_p1, y = acc_p2)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", color = "blue", fill = "blue", alpha = 0.1) +
+  labs(
+    title = "Correlation between Phase 1 and Phase 2 Accuracy",
+    x = "Phase 1 Accuracy",
+    y = "Phase 2 Accuracy"
+  ) +
+  theme_minimal()
+
+```
+```{r clean_hover_data, cache=F, fig.width = 8}
+
+## Exclude participants who may have used tablets:
+
+sep <- ";"
+
+mouse_long <- raw_df %>%
+  filter(!(subj_id %in% participants_to_exclude), trial_type == "testmouse") %>%
+  select(subj_id, trial_num, mouse_x, mouse_y, mouse_t) %>%
+  mutate(
+    mouse_x = if_else(is.na(mouse_x) | mouse_x == "", NA_character_, as.character(mouse_x)),
+    mouse_y = if_else(is.na(mouse_y) | mouse_y == "", NA_character_, as.character(mouse_y)),
+    mouse_t = if_else(is.na(mouse_t) | mouse_t == "", NA_character_, as.character(mouse_t))
+  ) %>%
+  mutate(
+    x_tokens = str_split(mouse_x, pattern = fixed(sep)),
+    y_tokens = str_split(mouse_y, pattern = fixed(sep)),
+    t_tokens = str_split(mouse_t, pattern = fixed(sep))
+  ) %>%
+  # require at least some x tokens
+  filter(!map_lgl(x_tokens, ~ all(is.na(.x)))) %>%
+  mutate(
+    n_tokens = pmax(map_int(x_tokens, length),
+                    map_int(y_tokens, length),
+                    map_int(t_tokens, length))
+  ) %>%
+  rowwise() %>%
+  mutate(idx = list(seq_len(n_tokens))) %>%
+  ungroup() %>%
+  unnest(cols = c(idx)) %>%
+  mutate(frame_index = idx) %>%
+  mutate(
+    x_token = map2_chr(x_tokens, frame_index, ~ if(length(.x) >= .y) .x[[.y]] else NA_character_),
+    y_token = map2_chr(y_tokens, frame_index, ~ if(length(.x) >= .y) .x[[.y]] else NA_character_),
+    t_token = map2_chr(t_tokens, frame_index, ~ if(length(.x) >= .y) .x[[.y]] else NA_character_)
+  ) %>%
+  select(subj_id, trial_num, frame_index, x_token, y_token, t_token)
+
+mouse_long <- mouse_long %>%
+  mutate(
+    mouse_x = as.numeric(str_trim(x_token)),
+    mouse_y = as.numeric(str_trim(y_token)),
+    mouse_t = as.numeric(str_trim(t_token))
+  ) %>%
+  select(-x_token, -y_token, -t_token) %>%
+  filter(!(is.na(mouse_x) & is.na(mouse_y)))
+
+mouse_movements <- mouse_long %>%
+  arrange(subj_id, trial_num, frame_index) %>%
+  group_by(subj_id, trial_num) %>%
+  mutate(
+    x_prev = lag(mouse_x),
+    y_prev = lag(mouse_y),
+    t_prev = lag(mouse_t),
+    dx = as.numeric(mouse_x) - as.numeric(x_prev),
+    dy = as.numeric(mouse_y) - as.numeric(y_prev),
+    dist = sqrt((dx)^2 + (dy)^2),
+    dt = as.numeric(mouse_t) - as.numeric(t_prev),
+    speed = ifelse(!is.na(dist) & !is.na(dt) & dt > 0, dist / dt, NA_real_)
+  ) %>%
+  ungroup()
+
+summary(mouse_movements$dist)
+quantile(mouse_movements$dist, probs = c(0, 0.5, 0.9, 0.99, 1), na.rm = TRUE)
+
+mouse_movements %>%
+  arrange(desc(dist)) %>%
+  slice_head(n = 20) %>%
+  select(subj_id, trial_num, frame_index, mouse_x, mouse_y, x_prev, y_prev, dx, dy, dist) 
+
+subject_maxdist <- mouse_movements %>%
+  group_by(subj_id) %>%
+  summarise(
+    n_points   = n(),
+    n_moves    = sum(!is.na(dist)),
+    max_dist   = max(dist, na.rm = TRUE),
+    median_dist= median(dist, na.rm = TRUE),
+    p99_dist   = quantile(dist, 0.99, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(max_dist))
+
+
+p_hist <- ggplot(subject_maxdist, aes(x = median_dist)) +
+  geom_histogram(bins = 60, boundary = 0, closed = "left", fill = "steelblue", color = "white", na.rm = TRUE) +
+  labs(title = "Distribution of participants' median frame-to-frame jump",
+       x = "median dist (pixels/frame)",
+       y = "Number of participants") +
+  theme_minimal(base_size = 13)
+
+print(p_hist)
+
+tablet_suspects <- subject_maxdist %>%
+  filter(median_dist > 150) %>%
+  pull(subj_id)
+
+```
+
+```{r hover_data_analysis, cache=F, fig.width = 8}
+
+
+hover_part1 <- raw_df %>%
+  filter(
+    !(subj_id %in% participants_to_exclude),
+    trial_type == "testmouse",
+    phase == 'part1',
+    !(subj_id %in% tablet_suspects)
+  ) %>%
+  select(
+    subj_id, 
+    trial_num,
+    stoneposition,
+    left_number, 
+    middle_number, 
+    right_number,
+    is_catch_trial,
+    chose_gems,
+    chose_other,
+    chose_onlystones,
+    frames_hover_left,
+    frames_hover_middle,
+    frames_hover_right,
+    frames_hover_none,
+    hover_time_left,
+    hover_time_middle,
+    hover_time_right,
+    hover_time_none, 
+    mouse_x,
+    mouse_y,
+    mouse_t,
+    mouse_universal_x,
+    mouse_universal_y,
+    hover_location,
+    total_frames,
+    correct_choice_position,
+    response_position
+  ) %>%
+  mutate(
+
+    across(starts_with("frames_hover_"), as.numeric),
+    across(starts_with("hover_time_"), as.numeric),
+
+    gem_frame_hover = case_when(
+      correct_choice_position == "left"   ~ frames_hover_left,
+      correct_choice_position == "middle" ~ frames_hover_middle,
+      correct_choice_position == "right"  ~ frames_hover_right,
+      TRUE ~ NA_real_
+    ),
+    gem_time_hover = case_when(
+      correct_choice_position == "left"   ~ hover_time_left,
+      correct_choice_position == "middle" ~ hover_time_middle,
+      correct_choice_position == "right"  ~ hover_time_right,
+      TRUE ~ NA_real_
+    ),
+    stone_frame_hover = case_when(
+      stoneposition == "left" ~ frames_hover_left,
+      stoneposition == "middle" ~ frames_hover_middle,
+      stoneposition == "right" ~ frames_hover_right,
+      TRUE ~ NA_real_
+    ),
+    stone_time_hover = case_when(
+      stoneposition == "right" ~ hover_time_right,
+      stoneposition == "middle" ~ hover_time_middle,
+      stoneposition == "left" ~ hover_time_left,
+      TRUE ~ NA_real_
+    ),
+    other_frame_hover = case_when(
+      stoneposition == "left" & correct_choice_position == "middle" ~ frames_hover_right,
+      stoneposition == "left" & correct_choice_position == "right" ~ frames_hover_middle,
+      stoneposition == "middle" & correct_choice_position == "right" ~ frames_hover_left,
+      stoneposition == "middle" & correct_choice_position == "left" ~ frames_hover_right,
+      stoneposition == "right" & correct_choice_position == "middle" ~ frames_hover_left,
+      stoneposition == "right" & correct_choice_position == "left" ~ frames_hover_middle,
+      TRUE ~ NA_real_
+    ),
+    other_time_hover = case_when(
+      stoneposition == "left" & correct_choice_position == "middle" ~ hover_time_right,
+      stoneposition == "left" & correct_choice_position == "right" ~ hover_time_middle,
+      stoneposition == "middle" & correct_choice_position == "right" ~ hover_time_left,
+      stoneposition == "middle" & correct_choice_position == "left" ~ hover_time_right,
+      stoneposition == "right" & correct_choice_position == "middle" ~ hover_time_left,
+      stoneposition == "right" & correct_choice_position == "left" ~ hover_time_middle,
+      TRUE ~ NA_real_
+    )
+    
+  )
+
+hover_part2 <- raw_df %>%
+  filter(
+    !(subj_id %in% participants_to_exclude),
+    trial_type == "testmouse",
+    phase == 'part2',
+    !(subj_id %in% tablet_suspects)
+  ) %>%
+  select(
+    subj_id, 
+    trial_num,
+    stoneposition,
+    left_number, 
+    middle_number, 
+    right_number,
+    is_catch_trial,
+    chose_gems,
+    chose_other,
+    chose_onlystones,
+    frames_hover_left,
+    frames_hover_middle,
+    frames_hover_right,
+    frames_hover_none,
+    hover_time_left,
+    hover_time_middle,
+    hover_time_right,
+    hover_time_none, 
+    mouse_x,
+    mouse_y,
+    mouse_t,
+    mouse_universal_x,
+    mouse_universal_y,
+    hover_location,
+    total_frames,
+    correct_choice_position,
+    is_consistent,
+    response_position
+  ) 
+
+
+part1_positions <- phase_1_df %>%
+  mutate(
+    gem_position   = correct_choice_position,
+    stone_position = stoneposition,
+    other_position = map2_chr(gem_position, stone_position, ~ {
+      setdiff(c("left", "middle", "right"), c(.x, .y))[1]
+    }),
+    computer_response_position = computer_response_position,
+    correct_choice_position_part1 = correct_choice_position
+  ) %>%
+  select(subj_id, trial_num, gem_position, stone_position, other_position,
+         computer_response_position, correct_choice_position_part1)
+
+  
+hover_part2 <- hover_part2 %>% 
+  left_join(part1_positions, by = c('subj_id', 'trial_num'))
+
+hover_part2 <- hover_part2 %>% 
+  mutate(
+
+    across(starts_with("frames_hover_"), as.numeric),
+    across(starts_with("hover_time_"), as.numeric),
+
+    is_consistent_frame_hover = case_when(
+      correct_choice_position == "left"   ~ frames_hover_left,
+      correct_choice_position == "middle" ~ frames_hover_middle,
+      correct_choice_position == "right"  ~ frames_hover_right,
+      TRUE ~ NA_real_
+    ),
+    is_consistent_time_hover = case_when(
+      correct_choice_position == "left"   ~ hover_time_left,
+      correct_choice_position == "middle" ~ hover_time_middle,
+      correct_choice_position == "right"  ~ hover_time_right,
+      TRUE ~ NA_real_
+    ),
+    stone_frame_hover = case_when(
+      stoneposition == "left" ~ frames_hover_left,
+      stoneposition == "middle" ~ frames_hover_middle,
+      stoneposition == "right" ~ frames_hover_right,
+      TRUE ~ NA_real_
+    ),
+    stone_time_hover = case_when(
+      stoneposition == "right" ~ hover_time_right,
+      stoneposition == "middle" ~ hover_time_middle,
+      stoneposition == "left" ~ hover_time_left,
+      TRUE ~ NA_real_
+    ),
+    gem_frame_hover = case_when(
+      correct_choice_position_part1 == 'left' ~ frames_hover_left,
+      correct_choice_position_part1 == 'middle' ~ frames_hover_middle,
+      correct_choice_position_part1 == 'right' ~ frames_hover_right
+    ),
+    gem_time_hover = case_when(
+      correct_choice_position_part1 == 'left' ~ hover_time_left,
+      correct_choice_position_part1 == "middle" ~ hover_time_middle,
+      correct_choice_position_part1 == 'right' ~ hover_time_right
+    ),
+    other_frame_hover = case_when(
+      stoneposition == "left" & correct_choice_position_part1 == "middle" ~ frames_hover_right,
+      stoneposition == "left" & correct_choice_position_part1 == "right" ~ frames_hover_middle,
+      stoneposition == "middle" & correct_choice_position_part1 == "right" ~ frames_hover_left,
+      stoneposition == "middle" & correct_choice_position_part1 == "left" ~ frames_hover_right,
+      stoneposition == "right" & correct_choice_position_part1 == "middle" ~ frames_hover_left,
+      stoneposition == "right" & correct_choice_position_part1 == "left" ~ frames_hover_middle,
+      TRUE ~ NA_real_
+    ),
+    other_time_hover = case_when(
+      stoneposition == "left" & correct_choice_position_part1 == "middle" ~ hover_time_right,
+      stoneposition == "left" & correct_choice_position_part1== "right" ~ hover_time_middle,
+      stoneposition == "middle" & correct_choice_position_part1 == "right" ~ hover_time_left,
+      stoneposition == "middle" & correct_choice_position_part1== "left" ~ hover_time_right,
+      stoneposition == "right" & correct_choice_position_part1== "middle" ~ hover_time_left,
+      stoneposition == "right" & correct_choice_position_part1== "left" ~ hover_time_middle,
+      TRUE ~ NA_real_
+    ),
+    
+    
+  )
+
+
+hover_part1_joined <- hover_part1 %>%
+  left_join(part1_positions, by = c("subj_id", "trial_num"))
+
+hover1_plot_df <- hover_part1_joined %>%
+  mutate(
+    across(starts_with("hover_time_"), as.numeric),
+
+    consistent_slot = case_when(
+      chose_gems   ~ "gem",
+      chose_onlystones ~ "stone",
+      chose_other ~ "other",
+      TRUE                                ~ NA_character_
+    )
+  ) %>%
+  pivot_longer(
+    cols = c(gem_time_hover, stone_time_hover, other_time_hover),
+    names_to = "hovered_item",
+    values_to = "hover_time"
+  ) %>%
+  mutate(
+    hovered_item = recode(hovered_item,
+                          gem_time_hover   = "gem",
+                          stone_time_hover = "stone",
+                          other_time_hover = "other"),
+    consistent_slot = factor(consistent_slot,
+                             levels = c("gem","stone","other"),
+                             labels = c("chose gems", "chose stones", "chose other")),
+    hovered_item = factor(hovered_item, levels = c("gem","stone","other"))
+  ) %>%
+  filter(!is.na(consistent_slot), !is.na(hover_time))
+
+
+summary_hover1 <- hover1_plot_df %>%
+  group_by(consistent_slot, hovered_item) %>%
+  summarise(
+    mean_hover = mean(hover_time, na.rm = TRUE),
+    sd_hover   = sd(hover_time, na.rm = TRUE),
+    n          = sum(!is.na(hover_time)),
+    se_hover   = sd_hover / sqrt(n),
+    .groups = "drop"
+  ) %>%
+  mutate(se_hover = ifelse(n <= 1, NA_real_, se_hover))
+
+pd <- position_dodge(width = 0.7)
+
+ggplot(summary_hover1, aes(x = consistent_slot, y = mean_hover, fill = hovered_item, group = hovered_item)) +
+  geom_col(position = pd, width = 0.6, alpha = 0.95) +
+  geom_errorbar(aes(ymin = mean_hover - 1.96 * se_hover, ymax = mean_hover + 1.96 * se_hover),
+                position = pd, width = 0.2, color = "black") +
+  labs(
+    x = "", y = "Mean hover time (ms)", fill = "Hovered item",
+    title = "Hover time in part 1 by chosen position and box type"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "top")
+
+hover_plot_df <- hover_part2 %>%
+  mutate(
+    consistent_slot = case_when(
+      response_position == gem_position   ~ "consistent_is_gem",
+      response_position == stone_position ~ "consistent_is_stone",
+      response_position == other_position ~ "consistent_is_other",
+      TRUE                                ~ NA_character_
+    )
+  ) %>%
+  pivot_longer(
+    cols = c(gem_time_hover, stone_time_hover, other_time_hover),
+    names_to = "hovered_item",
+    values_to = "hover_time"
+  ) %>%
+  mutate(
+    hovered_item = recode(hovered_item,
+                          gem_time_hover   = "gem",
+                          stone_time_hover = "stone",
+                          other_time_hover = "other"),
+    consistent_slot = factor(consistent_slot,
+                             levels = c("consistent_is_gem","consistent_is_stone","consistent_is_other"),
+                             labels = c("is_consistent = gem", "is_consistent = stone", "is_consistent = other")),
+    hovered_item = factor(hovered_item, levels = c("gem","stone","other"))
+  ) %>%
+  filter(!is.na(consistent_slot), !is.na(hover_time))
+
+
+summary_hover <- hover_plot_df %>%
+  group_by(consistent_slot, hovered_item) %>%
+  summarise(
+    mean_hover = mean(hover_time, na.rm = TRUE),
+    sd_hover   = sd(hover_time, na.rm = TRUE),
+    n         = sum(!is.na(hover_time)),
+    se_hover  = sd_hover / sqrt(n),
+    .groups = "drop"
+  )
+
+pd <- position_dodge(width = 0.7)
+
+ggplot(summary_hover, aes(x = consistent_slot, y = mean_hover, fill = hovered_item, group = hovered_item)) +
+  geom_col(position = pd, width = 0.6, alpha = 0.9) +
+  geom_errorbar(aes(ymin = mean_hover - 1.96 * se_hover, ymax = mean_hover + 1.96 * se_hover),
+                position = pd, width = 0.2, color = "black") +
+  labs(
+    x = "", y = "Mean hover time (ms)", fill = "Hovered box type",
+    title = "Hover time in part 2 by correct position and box type"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "top")
+
+
+
+
+```
+
+
+
+```{r i_revealed_gems, cache = F}
+
+
+acc_by_condition <- phase_1_df %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    condition = case_when(
+      chose_gems ~ "self",
+      computer_chose_gems ~ "computer",
+      !chose_gems & !computer_chose_gems ~ "none"
+    )
+  ) %>%
+  filter(!is.na(condition)) %>%
+  inner_join(
+    phase_2_df %>%
+      filter(!is_catch_trial) %>%
+      select(subj_id, trial_num, is_consistent),
+    by = c("subj_id", "trial_num")
+  ) %>%
+  group_by(subj_id, condition, mentioned_rule) %>%
+  summarise(
+    mean_acc = mean(is_consistent)
+  )
+
+acc_wide <- acc_by_condition %>%
+  tidyr::pivot_wider(
+    names_from = condition,
+    values_from = mean_acc
+  )
+
+library(lme4)
+
+self_vs_computer <- phase_1_df %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    condition = case_when(
+      chose_gems ~ "self",
+      computer_chose_gems ~ "computer",
+      !chose_gems & !computer_chose_gems ~ "none"
+    )
+  ) %>%
+  filter(condition %in% c("self", "computer")) %>%  
+  inner_join(
+    phase_2_df %>%
+      filter(!is_catch_trial) %>%
+      select(subj_id, trial_num, is_consistent, confidence),
+    by = c("subj_id", "trial_num")
+  ) %>%
+  mutate(conf_prop = as.numeric(confidence) / 100)
+
+
+model <- glmer(
+  is_consistent ~ condition + (1 | subj_id),
+  data = self_vs_computer,
+  family = binomial,
+  control = glmerControl(
+    optimizer = "bobyqa"
+  )
+)
+
+summary(model)
+
+library(emmeans)
+emms <- emmeans(model, ~ condition, type = "response")
+
+
+
+
+
+t.test(
+  acc_wide$self,
+  acc_wide$computer,
+  paired = TRUE
+)
+
+  
+t_self_vs_com_rule_true <- acc_wide %>%
+  filter(mentioned_rule == TRUE) %>%
+  with(
+    t.test(self, computer, paired = TRUE)
+  )
+
+t_self_vs_com_rule_true
+
+t_self_vs_com_rule_false <- acc_wide %>%
+  filter(mentioned_rule == FALSE) %>%
+  with(
+    t.test(self, computer, paired = TRUE)
+  )
+
+t_self_vs_com_rule_false
+
+library(lme4)
+
+lmm <- lmer(
+  mean_acc ~ condition  + (1 | subj_id),
+  data = acc_by_condition
+)
+
+anova(lmm)
+
+library(emmeans)
+emmeans(lmm, pairwise ~ condition)
+
+
+
+```
+
+We tested the hypothesis that participants are equally accurate when they chose the gems in part 1 and when the computer chose the gems in part 1 using a mixed-effects logistic regression model predicting consistency
+(is_consistent ~ condition + (1 | subj_id)).There was no significant effect of who chose the gems on accuracy. When the computer chose the gems, estimated accuracy was `r printnum(round(plogis(fixef(model)[1]), 2))`,
+compared to `r printnum(round(plogis(fixef(model)[2] + fixef(model)[1]), 2))` when the participant chose the gems.
+
+The fixed effect of condition (computer vs. self) was not significant, Beta = `r printnum(round(fixef(model)[2],2))`, SE = `r printnum(round(summary(model)$coefficients[2, "Std. Error"], 2))`, *z* = `r printnum(round(summary(model)$coefficients[2, "z value"], 2))`, *p* `r printp(summary(model)$coefficients[2, "Pr(>|z|)"])`.
+
+The corresponding odds ratio was OR = `r printnum(round(exp(fixef(model)[2]), 2))`, 95% CI [`r printnum(round(exp(confint(model, parm = 2, method = "Wald")[1]), 2))`, `r printnum(round(exp(confint(model, parm = 2, method = "Wald")[2]), 2))`].
+
+
+```{r rewarded, cache=F}
+
+chose_gems_p2_by_condition <- phase_1_df %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    condition = case_when(
+      chose_gems ~ NA_character_,
+      computer_chose_gems ~ "computer",
+      !chose_gems & !computer_chose_gems ~ "none"
+    )
+  ) %>%
+  filter(!is.na(condition)) %>%
+  inner_join(
+    phase_2_df %>%
+      filter(!is_catch_trial) %>%
+      mutate(p2_chose_gems = chose_gems) %>%
+      select(subj_id, trial_num, p2_chose_gems),
+    by = c("subj_id", "trial_num")
+  ) %>%
+  group_by(subj_id, condition, mentioned_rule) %>%
+  summarise(
+     prob_gems= mean(p2_chose_gems),
+    .groups = "drop"
+  )
+
+gems_wide <- chose_gems_p2_by_condition %>%
+  tidyr::pivot_wider(
+    names_from = condition,
+    values_from = prob_gems
+  )
+
+t.test(
+  gems_wide$none,
+  gems_wide$computer,
+  paired = TRUE
+)
+
+  
+t_none_vs_com_rule_true <- gems_wide %>%
+  filter(mentioned_rule == TRUE) %>%
+  with(
+    t.test(none, computer, paired = TRUE)
+  )
+
+t_self_vs_com_rule_true
+
+t_self_vs_com_rule_false <- gems_wide %>%
+  filter(mentioned_rule == FALSE) %>%
+  with(
+    t.test(none, computer, paired = TRUE)
+  )
+
+t_self_vs_com_rule_false
+
+computer_vs_none <- phase_1_df %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    condition = case_when(
+      chose_gems ~ "self",
+      computer_chose_gems ~ "computer",
+      !chose_gems & !computer_chose_gems ~ "none"
+    )
+  ) %>%
+  filter(condition %in% c("none", "computer")) %>%  
+  inner_join(
+    phase_2_df %>%
+      filter(!is_catch_trial) %>%
+      mutate(p2_chose_gems = chose_gems) %>%
+      select(subj_id, trial_num, p2_chose_gems),
+    by = c("subj_id", "trial_num")
+  )
+
+
+model <- glmer(
+  p2_chose_gems ~ condition + (1 | subj_id),
+  data = computer_vs_none,
+  family = binomial,
+  control = glmerControl(
+    optimizer = "bobyqa"
+  )
+)
+
+summary(model)
+
+library(emmeans)
+
+emmeans(model, ~ condition, type = "response")
+
+```
+
+We tested the hypothesis that participants are equally likely to choose the gems option in part 2 when no one chose gems in part 1 and when the computer chose the gems in part 1 using a mixed-effects logistic regression model predicting consistency
+(p2_chose_gems ~ condition + (1 | subj_id)).There was no significant effect of who chose the gems on accuracy. When the computer chose the gems, the estimated probability of choosing gems was `r printnum(round(plogis(fixef(model)[1]), 2))`,
+compared to `r printnum(round(plogis(fixef(model)[2] + fixef(model)[1]), 2))` when the no one chose the gems.
+
+The fixed effect of condition (computer vs. no one) was not significant, Beta = `r printnum(round(fixef(model)[2],2))`, SE = `r printnum(round(summary(model)$coefficients[2, "Std. Error"], 2))`, *z* = `r printnum(round(summary(model)$coefficients[2, "z value"], 2))`, *p* `r printp(summary(model)$coefficients[2, "Pr(>|z|)"])`.
+
+The corresponding odds ratio was OR = `r printnum(round(exp(fixef(model)[2]), 2))`, 95% CI [`r printnum(round(exp(confint(model, parm = 2, method = "Wald")[1]), 2))`, `r printnum(round(exp(confint(model, parm = 2, method = "Wald")[2]), 2))`].
+
+
+
+
+
+# Results
+
+# Discussion
+
+
+\newpage
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::

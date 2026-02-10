@@ -1,0 +1,3290 @@
+---
+title: "Cogsci Plots"
+output: word_document
+date: "2026 Jan"
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+r_refs("r-references.bib")
+
+library('groundhog')
+groundhog.library(
+  c(
+    'papaja',
+    'tidyverse'
+  ), "2025-06-01"
+)
+
+r_refs("r-references.bib")
+
+knitr::opts_chunk$set(warning=F,echo=F,message=F,cache=T)
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+
+
+```{r loadformat, include = FALSE, cache=F}
+library(tidyverse)
+library(stringr)
+library(effsize)
+
+two_parts_df_exp1 <-read.csv("...data/experiment1/two_parts_df_exp1.csv")
+
+two_parts_df_exp2 <- read.csv("...data/experiment2/two_parts_df_exp2.csv")
+
+two_parts_df_exp3 <- read.csv("...data/experiment3/two_parts_df_exp3.csv")
+
+
+p1_colour <- '#69b3a2'
+p2_colour <- '#404080'
+
+```
+
+```{r pstone, cache=F}
+library(broom)
+
+exp1_pstone_slopes_p1 <- two_parts_df_exp1 %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  do(tidy(glm(chose_onlystones ~ trial_num, family = binomial, data = .))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope_p1 = estimate)
+
+exp1_pstone_slopes_p2 <- two_parts_df_exp1 %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  do(tidy(glm(chose_onlystones_p2 ~ trial_num, family = binomial, data = .))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope_p2 = estimate)
+
+exp2_pstone_slopes_p1 <- two_parts_df_exp2 %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  do(tidy(glm(chose_onlystones ~ trial_num, family = binomial, data = .))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope_p1 = estimate)
+
+exp2_pstone_slopes_p2 <- two_parts_df_exp2 %>%
+  group_by(subj_id, mentioned_rule) %>%
+  filter(!is_catch_trial) %>%
+  do(tidy(glm(chose_onlystones_p2 ~ trial_num, family = binomial, data = .))) %>%
+  filter(term == "trial_num") %>%
+  select(subj_id, slope_p2 = estimate)
+
+exp1_diff_slope <- exp1_pstone_slopes_p1 %>%
+  inner_join(exp1_pstone_slopes_p2, by = "subj_id") %>%
+  mutate(diff = slope_p1 - slope_p2)
+
+exp2_diff_slope <- exp2_pstone_slopes_p1 %>%
+  inner_join(exp2_pstone_slopes_p2, by = "subj_id") %>%
+  mutate(diff = slope_p1 - slope_p2)
+
+wilcox.test(exp1_diff_slope$diff)
+
+wilcox.test(exp2_diff_slope$diff)
+
+
+```
+
+Experiment 1, part 1, pstone slope: `r apa_print(wilcox.test(exp1_pstone_slopes_p1$slope_p1))$statistic`
+
+Experiment 1, part 2, pstone slope: `r apa_print(wilcox.test(exp1_pstone_slopes_p2$slope_p2))$statistic`
+
+Experiment 2, part 1, pstone slope: `r apa_print(wilcox.test(exp2_pstone_slopes_p1$slope_p1))$statistic`
+
+Experiment 2, part 2, pstone slope: `r apa_print(wilcox.test(exp2_pstone_slopes_p2$slope_p2))$statistic`
+
+Experiment 1, part 1 - part 2, pstone slope : `r apa_print(wilcox.test(exp1_diff_slope$diff))$statistic`
+
+Experiment2, part 1 - part 2, pstone slope: `r apa_print(wilcox.test(exp2_diff_slope$diff))$statistic`
+
+Exp. 1 vs Exp. 2, (part 1 - part 2), pstone slope: `r apa_print(wilcox.test(exp2_diff_slope$diff, exp1_diff_slope$diff))$statistic`
+
+
+```{r no_diff_reconstruction_accuracy, cache=F}
+
+diff_acc_exp1 <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  tidyr::pivot_wider(
+    names_from = chose_gems,
+    values_from = acc,
+    names_prefix = "chose_gems_"
+  ) %>%
+  mutate(
+    diff_acc = chose_gems_TRUE - chose_gems_FALSE
+  ) 
+
+diff_acc_exp2 <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  tidyr::pivot_wider(
+    names_from = chose_gems,
+    values_from = acc,
+    names_prefix = "chose_gems_"
+  ) %>%
+  mutate(
+    diff_acc = chose_gems_TRUE - chose_gems_FALSE
+  ) 
+```
+
+There is no difference in the effect of reconstruction accuracy being boosted by outcomes in part 1 across experiment 1 and 2 (`r apa_print(t.test(diff_acc_exp1$diff_acc, diff_acc_exp2$diff_acc))$statistic`)
+
+### phase 1 accuracy
+
+```{r t_test, cache=F}
+
+library(tidyverse)
+library(broom)
+
+make_bins <- function(max_trial, bin_width = 5) {
+  breaks <- seq(0.5, max_trial + 0.5, by = bin_width)
+  starts <- seq(1, max_trial, by = bin_width)
+  ends   <- pmin(starts + bin_width - 1, max_trial)
+  labels <- paste0(starts, "–", ends)
+  list(breaks = breaks, labels = labels)
+}
+
+run_bin_ttests <- function(df, max_trial, bin_width = 5) {
+  bins <- make_bins(max_trial = max_trial, bin_width = bin_width)
+  breaks <- bins$breaks
+  bin_labels <- bins$labels
+
+  df_long <- df %>%
+    pivot_longer(
+      cols = c(chose_onlystones, chose_onlystones_p2),
+      names_to = "phase_raw",
+      values_to = "chose_onlystones"
+    ) %>%
+    mutate(
+      phase = case_when(
+        phase_raw == "chose_onlystones"    ~ "part1",
+        phase_raw == "chose_onlystones_p2" ~ "part2",
+        TRUE ~ NA_character_
+      ),
+      phase = factor(phase, levels = c("part1", "part2")),
+      bin = cut(
+        trial_num,
+        breaks = breaks,
+        labels = bin_labels,
+        include.lowest = TRUE,
+        right = TRUE
+      ),
+      bin = factor(bin, levels = bin_labels)
+    ) %>%
+    filter(!is.na(phase), !is.na(bin))
+
+  by_subj_bias <- df_long %>%
+    group_by(subj_id, phase, bin) %>%
+    summarise(bias = mean(chose_onlystones, na.rm = TRUE), .groups = "drop")
+
+  bin_tests <- by_subj_bias %>%
+    pivot_wider(names_from = phase, values_from = bias) %>%
+    group_by(bin) %>%
+    group_modify(~ {
+      dat <- .x
+
+      dat_pair <- dat %>% filter(!is.na(part1) & !is.na(part2))
+
+      n_subj <- nrow(dat_pair)
+      mean1 <- if (n_subj > 0) mean(dat_pair$part1, na.rm = TRUE) else NA_real_
+      mean2 <- if (n_subj > 0) mean(dat_pair$part2, na.rm = TRUE) else NA_real_
+      diff_mean <- if (n_subj > 0) mean(dat_pair$part1 - dat_pair$part2, na.rm = TRUE) else NA_real_
+
+      if (n_subj >= 2) {
+        t_res <- t.test(dat_pair$part1, dat_pair$part2, paired = TRUE)
+        t_tidy <- broom::tidy(t_res)
+        tibble(
+          n_subjects = n_subj,
+          mean_part1 = mean1,
+          mean_part2 = mean2,
+          mean_diff = diff_mean,             
+          t = t_tidy$statistic,
+          df = t_tidy$parameter,
+          p.value = t_tidy$p.value,
+          conf.low = t_tidy$conf.low,
+          conf.high = t_tidy$conf.high
+        )
+      } else {
+        tibble(
+          n_subjects = n_subj,
+          mean_part1 = mean1,
+          mean_part2 = mean2,
+          mean_diff = diff_mean,
+          t = NA_real_,
+          df = NA_real_,
+          p.value = NA_real_,
+          conf.low = NA_real_,
+          conf.high = NA_real_
+        )
+      }
+    }, .keep = TRUE) %>%
+    ungroup() %>%
+    arrange(bin)
+
+  bin_tests <- bin_tests %>%
+    mutate(bin = factor(as.character(bin), levels = bin_labels))
+
+  return(bin_tests)
+}
+
+results_exp1 <- run_bin_ttests(
+  df = two_parts_df_exp1 %>% filter(!is_catch_trial),
+  max_trial = 60,
+  bin_width = 5
+)
+
+results_exp2 <- run_bin_ttests(
+  df = two_parts_df_exp2 %>% filter(!is_catch_trial),
+  max_trial = 50,
+  bin_width = 5
+)
+
+results_exp3 <- run_bin_ttests(
+  df = two_parts_df_exp3 %>% filter(!is_catch_trial),
+  max_trial = 50,
+  bin_width = 5
+)
+
+results_exp1_explicit <- run_bin_ttests(
+  df = two_parts_df_exp1 %>% filter(!is_catch_trial, mentioned_rule),
+  max_trial = 60,
+  bin_width = 5
+)
+
+results_exp2_explicit <- run_bin_ttests(
+  df = two_parts_df_exp2 %>% filter(!is_catch_trial, mentioned_rule),
+  max_trial = 50,
+  bin_width = 5
+)
+
+results_exp3_explicit <- run_bin_ttests(
+  df = two_parts_df_exp3 %>% filter(!is_catch_trial, mentioned_rule),
+  max_trial = 50,
+  bin_width = 5
+)
+
+
+
+```
+
+```{r phase_1_and_2_accuracy,  cache=F, fig.width=4, fig.height=6}
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+library(ggtext) 
+
+make_bins <- function(max_trial, bin_width = 5) {
+  breaks <- seq(0.5, max_trial + 0.5, by = bin_width)
+  starts <- seq(1, max_trial, by = bin_width)
+  ends   <- pmin(starts + bin_width - 1, max_trial)
+  labels <- paste0(starts, "–", ends)
+  list(breaks = breaks, labels = labels)
+}
+
+pd <- position_dodge(width = 0.2)
+phase_pal <- c("part1" = p1_colour, "part2" = p2_colour)  
+vline_geom <- function(n_bins) seq(1.5, n_bins - 0.5, by = 1)
+
+make_phase_plot_dynamic <- function(df,
+                                    max_trial,
+                                    plot_subtitle = NULL,
+                                    plot_title = NULL,
+                                    bin_width = 5) {
+  bins <- make_bins(max_trial = max_trial, bin_width = bin_width)
+  breaks <- bins$breaks
+  bin_labels <- bins$labels
+  n_bins <- length(bin_labels)
+  vline_x <- vline_geom(n_bins)
+  
+  df_long <- df %>%
+    pivot_longer(
+      cols = c(chose_onlystones, chose_onlystones_p2),
+      names_to = "phase_raw",
+      values_to = "chose_onlystones"
+    ) %>%
+    mutate(
+      phase = case_when(
+        phase_raw == "chose_onlystones"    ~ "part1",
+        phase_raw == "chose_onlystones_p2" ~ "part2",
+        TRUE ~ NA_character_
+      ),
+      phase = factor(phase, levels = c("part1", "part2")),
+      bin = cut(
+        trial_num,
+        breaks = breaks,
+        labels = bin_labels,
+        include.lowest = TRUE,
+        right = TRUE
+      ),
+      bin = factor(bin, levels = bin_labels)
+    ) %>%
+      filter(!is.na(phase))  
+  
+  by_subj_bias <- df_long %>%
+    group_by(subj_id, phase, bin) %>%
+    summarise(bias = mean(chose_onlystones, na.rm = TRUE), .groups = "drop")
+  
+  group_summary_sub <- by_subj_bias %>%
+    group_by(phase, bin) %>%
+    summarise(
+      m  = mean(bias, na.rm = TRUE),
+      se = sd(bias, na.rm = TRUE) / sqrt(n()),
+      .groups = "drop"
+    )
+  
+  p <- ggplot(group_summary_sub,
+              aes(x = bin, y = m,
+                  color = phase,
+                  shape = phase,
+                  group = phase)) +
+    geom_hline(yintercept = 1/3, linewidth = 0.3) +
+    geom_line(linewidth = 0.7, position = pd) +
+    geom_point(size = 2, position = pd) +
+    geom_errorbar(aes(ymin = m - se, ymax = m + se), width = 0.2, position = pd, linetype = "solid") +
+   scale_color_manual(
+  values = phase_pal,
+  name = NULL,
+  labels = c(
+    "part1" = "Collect the gems!",
+    "part2" = "Repeat your guesses!"
+  )
+) +
+scale_shape_discrete(
+  name = NULL,
+  labels = c(
+    "part1" = "Collect the gems!",
+    "part2" = "Repeat your guesses!"
+  )
+) +
+scale_linetype_discrete(
+  name = NULL,
+  labels = c(
+    "part1" = "Collect the gems!",
+    "part2" = "Repeat your guesses!"
+  )
+) +
+    labs(x = "Trial Bin", y = "P(*stones only*)", title = plot_title, subtitle = plot_subtitle) + theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    legend.position = "none",
+    axis.title.y = element_markdown(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text.x = element_text(size = 12, angle=45, hjust = 1),
+    axis.text.y = element_text(size = 12),
+  ) 
+  
+  return(p)
+}
+
+plot_exp1 <- make_phase_plot_dynamic(
+  two_parts_df_exp1 %>% filter(!is_catch_trial),
+  max_trial = 60,
+  plot_title = NULL,
+  plot_subtitle = "Exp. 1" 
+)
+
+plot_exp2 <- make_phase_plot_dynamic(
+  two_parts_df_exp2 %>% filter(!is_catch_trial),
+  max_trial = 50,
+  plot_title = NULL,
+  plot_subtitle = "Exp. 2"
+)
+
+plot_exp3 <- make_phase_plot_dynamic(
+  two_parts_df_exp3 %>% filter(!is_catch_trial),
+  max_trial = 50,
+  plot_title = NULL,
+  plot_subtitle = "Exp. 3"
+)
+
+
+combined <- plot_exp1 / plot_exp2 / plot_exp3 + 
+  plot_layout(guides = "collect", ncol = 1) +
+  plot_annotation(
+    theme = theme(plot.title = element_text(size = 16, face = "bold"),
+                  plot.caption = element_text(size = 8))
+  )
+
+
+print(combined)
+
+```
+
+```{r t_plot, cache=F, fig.width=4, fig.height=6}
+
+make_sig_layer <- function(ttest_df, y = 0.15, pad = 0.35, colour = "red", linewidth = 0.8) {
+  sig_bins <- ttest_df %>%
+    filter(!is.na(p.value), p.value < 0.05) %>%
+    mutate(pos = as.integer(bin)) %>%
+    arrange(pos)
+
+  if (nrow(sig_bins) == 0) {
+    return(geom_blank())
+  }
+
+  runs <- split(sig_bins, cumsum(c(1, diff(sig_bins$pos) != 1)))
+  seg_df <- map_dfr(runs, function(df_run) {
+    start_pos <- min(df_run$pos)
+    end_pos   <- max(df_run$pos)
+    tibble(
+      x = start_pos - pad,
+      xend = end_pos + pad,
+      y = y,
+      yend = y
+    )
+  })
+
+  geom_segment(
+    data = seg_df,
+    aes(x = x, xend = xend, y = y, yend = yend),
+    inherit.aes = FALSE,
+    color = colour,
+    linewidth = linewidth,
+    lineend = "round"
+  )
+}
+
+
+learn_plot_exp1 <- make_phase_plot_dynamic(
+  two_parts_df_exp1 %>% filter(!is_catch_trial),
+  max_trial = 60,
+  plot_title = NULL,
+  plot_subtitle = ""
+) +
+  make_sig_layer(results_exp1, y = 0.15)
+
+learn_plot_exp2 <- make_phase_plot_dynamic(
+  two_parts_df_exp2 %>% filter(!is_catch_trial),
+  max_trial = 50,
+  plot_title = NULL,
+  plot_subtitle = ""
+) +
+  make_sig_layer(results_exp2, y = 0.15)
+
+learn_plot_exp3 <- make_phase_plot_dynamic(
+  two_parts_df_exp3 %>% filter(!is_catch_trial),
+  max_trial = 50,
+  plot_title = NULL,
+  plot_subtitle = ""
+) +
+  make_sig_layer(results_exp3, y = 0.15)
+combined <- learn_plot_exp1 / learn_plot_exp2 / learn_plot_exp3 + 
+  plot_layout(guides = "collect", ncol = 1) +
+  plot_annotation(
+    theme = theme(
+      plot.title = element_text(size = 16, face = "bold"),
+      plot.caption = element_text(size = 8)
+    )
+  )
+
+print(combined)
+
+ggsave("exp3_learn_plot.png", learn_plot_exp3, width = 6, height = 4, dpi = 300)
+
+```
+
+
+```{r t_plot_explicit, cache=F, fig.width=4, fig.height=6}
+
+make_phase_plot_explicit <- function(df,
+                                    max_trial,
+                                    plot_subtitle = NULL,
+                                    plot_title = NULL,
+                                    bin_width = 5) {
+  bins <- make_bins(max_trial = max_trial, bin_width = bin_width)
+  breaks <- bins$breaks
+  bin_labels <- bins$labels
+  n_bins <- length(bin_labels)
+  vline_x <- vline_geom(n_bins)
+  
+  df_long <- df %>%
+    pivot_longer(
+      cols = c(chose_onlystones, chose_onlystones_p2),
+      names_to = "phase_raw",
+      values_to = "chose_onlystones"
+    ) %>%
+    mutate(
+      phase = case_when(
+        phase_raw == "chose_onlystones"    ~ "part1",
+        phase_raw == "chose_onlystones_p2" ~ "part2",
+        TRUE ~ NA_character_
+      ),
+      phase = factor(phase, levels = c("part1", "part2")),
+      bin = cut(
+        trial_num,
+        breaks = breaks,
+        labels = bin_labels,
+        include.lowest = TRUE,
+        right = TRUE
+      ),
+      bin = factor(bin, levels = bin_labels)
+    ) %>%
+    filter(!is.na(phase))
+  
+  by_subj_bias <- df_long %>%
+    group_by(subj_id, phase, bin) %>%
+    summarise(bias = mean(chose_onlystones, na.rm = TRUE), .groups = "drop")
+  
+  group_summary_sub <- by_subj_bias %>%
+    group_by(phase, bin) %>%
+    summarise(
+      m  = mean(bias, na.rm = TRUE),
+      se = sd(bias, na.rm = TRUE) / sqrt(n()),
+      .groups = "drop"
+    )
+  
+  p <- ggplot(group_summary_sub,
+              aes(x = bin, y = m,
+                  color = phase,
+                  shape = phase,
+                  group = phase)) +
+    geom_hline(yintercept = 1/3, linewidth = 0.3) +
+    geom_line(linewidth = 0.7, position = pd) +
+    geom_point(size = 2, position = pd) +
+    geom_errorbar(aes(ymin = m - se, ymax = m + se), width = 0.2, position = pd, linetype = "solid") +
+   scale_color_manual(
+  values = phase_pal,
+  name = NULL,
+  labels = c(
+    "part1" = "Collect the gems!",
+    "part2" = "Repeat your guesses!"
+  )
+) +
+scale_shape_discrete(
+  name = NULL,
+  labels = c(
+    "part1" = "Collect the gems!",
+    "part2" = "Repeat your guesses!"
+  )
+) +
+scale_linetype_discrete(
+  name = NULL,
+  labels = c(
+    "part1" = "Collect the gems!",
+    "part2" = "Repeat your guesses!"
+  )
+) +
+    labs(x = "Trial Bin", y = "P(*stones only*)", title = plot_title, subtitle = plot_subtitle) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(size = 11, face = "bold"),
+          plot.subtitle = element_text(size = 9)) +
+    scale_y_continuous(limits = c(0, 0.4)) + 
+     theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    axis.title.x = element_markdown(size = 10),
+    axis.title.y = element_markdown(size = 10)  ,
+    legend.position = 'none'
+  ) 
+  
+  return(p)
+}
+
+
+make_sig_layer <- function(ttest_df, y = 0.15, pad = 0.35, colour = "red", linewidth = 0.8) {
+  sig_bins <- ttest_df %>%
+    filter(!is.na(p.value), p.value < 0.05) %>%
+    mutate(pos = as.integer(bin)) %>%
+    arrange(pos)
+
+  if (nrow(sig_bins) == 0) {
+    return(geom_blank())
+  }
+
+  runs <- split(sig_bins, cumsum(c(1, diff(sig_bins$pos) != 1)))
+
+  seg_df <- map_dfr(runs, function(df_run) {
+    start_pos <- min(df_run$pos)
+    end_pos   <- max(df_run$pos)
+    tibble(
+      x = start_pos - pad,
+      xend = end_pos + pad,
+      y = y,
+      yend = y
+    )
+  })
+
+  geom_segment(
+    data = seg_df,
+    aes(x = x, xend = xend, y = y, yend = yend),
+    inherit.aes = FALSE,
+    color = colour,
+    linewidth = linewidth,
+    lineend = "round"
+  )
+}
+
+
+plot_exp1 <- make_phase_plot_explicit(
+  two_parts_df_exp1 %>% filter(!is_catch_trial, mentioned_rule),
+  max_trial = 60,
+  plot_title = NULL,
+  plot_subtitle = "Exp. 1"
+) +
+  make_sig_layer(results_exp1_explicit, y = 0)
+
+plot_exp2 <- make_phase_plot_explicit(
+  two_parts_df_exp2 %>% filter(!is_catch_trial, mentioned_rule),
+  max_trial = 50,
+  plot_title = NULL,
+  plot_subtitle = "Exp. 2"
+) +
+  make_sig_layer(results_exp2_explicit, y = 0)
+
+plot_exp3 <- make_phase_plot_explicit(
+  two_parts_df_exp3 %>% filter(!is_catch_trial, mentioned_rule),
+  max_trial = 50,
+  plot_title = NULL,
+  plot_subtitle = "Exp. 3"
+) +
+  make_sig_layer(results_exp3_explicit, y = 0)
+combined <- plot_exp1 / plot_exp2 / plot_exp3 + 
+  plot_layout(guides = "collect", ncol = 1) +
+  plot_annotation(
+    theme = theme(
+      plot.title = element_text(size = 16, face = "bold"),
+      plot.caption = element_text(size = 8)
+    )
+  )
+
+print(combined)
+
+```
+
+
+```{r guess_accuracy_plot, cache=F}
+
+exp1_accuracy <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_acc = mean(acc),
+     se_acc   = sd(acc, na.rm = TRUE) / sqrt(n()),
+    n        = n()
+    
+  )
+
+exp2_accuracy <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_acc = mean(acc),
+     se_acc   = sd(acc, na.rm = TRUE) / sqrt(n()),
+    n        = n()
+    
+  )
+
+exp3_accuracy <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent),
+   
+  )
+
+
+exp1_acc_wide <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    subj_acc = mean(is_consistent)
+  ) %>%
+  pivot_wider(names_from = chose_gems, values_from = subj_acc)%>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+exp2_acc_wide <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    subj_acc = mean(is_consistent)
+  ) %>%
+  pivot_wider(names_from = chose_gems, values_from = subj_acc)%>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+exp1_acc_t <- t.test(exp1_acc_wide$`TRUE`, exp1_acc_wide$`FALSE`, paired=T)
+exp2_acc_t <- t.test(exp2_acc_wide$`TRUE`, exp2_acc_wide$`FALSE`, paired=T)
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.3f", p)
+}
+exp1_p <- fmt_p(exp1_acc_t$p.value)
+exp2_p <- fmt_p(exp2_acc_t$p.value)
+
+x1 <- 1
+x2 <- 2
+y_top <- 0.55
+y <- y_top - 0.03                
+cap_h <- 0.03                  
+text_y <- y_top - 0.08
+
+
+
+
+
+premembered_exp1_plot <- ggplot(exp1_accuracy, aes(x = chose_gems, y = mean_acc)) +
+  geom_errorbar(
+    aes(ymin = mean_acc - se_acc, ymax = mean_acc + se_acc),
+    width = 0.12,
+    linewidth = 0.8
+  ) +
+  geom_point(
+    aes(color = chose_gems, fill = chose_gems),
+    shape = 23,            # filled diamond
+    size = 3,
+  ) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", color = "black", linewidth = 0.8) +
+  scale_y_continuous(
+    limits = c(0.3, 0.8),      
+    breaks = seq(0.1, 1.1, by = 0.2),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    x = "Part 1 Outcome",
+    y = "P(*remembered*)"
+  ) +
+  scale_x_discrete(
+  labels = c(
+    `FALSE` = "Stones",
+    `TRUE`  = "Gems"
+  )
+) + 
+  scale_color_manual(
+    values = c(
+      `TRUE`  = "#22C55E",
+      `FALSE` = "grey70"
+    )
+  ) +
+  scale_fill_manual(
+  values = c(
+    `TRUE`  = "#22C55E",
+    `FALSE` = "grey70"
+  )
+) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    legend.position = "none",
+    axis.title.y = element_markdown(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12)
+  ) + 
+  geom_segment(aes(x = x1, xend = x2, y = y, yend = y), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x1, xend = x1, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x2, xend = x2, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  annotate("text", x = (x1 + x2) / 2, y = text_y, label = exp1_p, size = 5, vjust = 0)
+
+premembered_exp2_plot <- ggplot(exp2_accuracy, aes(x = chose_gems, y = mean_acc)) +
+  geom_errorbar(
+    aes(ymin = mean_acc - se_acc, ymax = mean_acc + se_acc),
+    width = 0.12,
+    linewidth = 0.8
+  ) +
+  geom_point(
+    aes(color = chose_gems, fill = chose_gems),
+    shape = 23,            # filled diamond
+    size = 3
+  ) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", color = "black", linewidth = 0.8) +
+  scale_y_continuous(
+    limits = c(0.3, 0.8),           # match your example; change if you prefer 0-1
+    breaks = seq(0.1, 1.1, by = 0.2),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    x = "Part 1 Outcome",
+    y = "P(*remembered*)"
+  ) +
+  scale_color_manual(
+    values = c(
+      `TRUE`  = "#22C55E",
+      `FALSE` = "grey70"
+    )
+  ) +
+  scale_fill_manual(
+  values = c(
+    `TRUE`  = "#22C55E",
+    `FALSE` = "grey70"
+  )
+) + 
+  scale_x_discrete(
+  labels = c(
+    `FALSE` = "Stones",
+    `TRUE`  = "Gems"
+  )
+)  +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    legend.position = "none",
+    axis.title.y = element_markdown(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12)
+  )+ 
+  geom_segment(aes(x = x1, xend = x2, y = y, yend = y), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x1, xend = x1, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x2, xend = x2, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  annotate("text", x = (x1 + x2) / 2, y = text_y, label = exp2_p, size = 5, vjust = 0)
+
+
+print(premembered_exp1_plot)
+print(premembered_exp2_plot)
+
+```
+
+
+
+
+
+
+```{r combined_plots, fig.width = 8, fig.height = 6,  cache=F}
+library(patchwork) 
+
+exp1_inconsistent <- two_parts_df_exp1 %>%
+  filter(!is_consistent, !is_catch_trial, chose_gems) %>%
+  group_by(subj_id) %>%
+  summarise(pstone = mean(chose_onlystones_p2))
+
+exp2_inconsistent <- two_parts_df_exp2 %>%
+  filter(!is_consistent, !is_catch_trial, chose_gems) %>%
+  group_by(subj_id) %>%
+  summarise(pstone = mean(chose_onlystones_p2))
+
+exp3_inconsistent <- two_parts_df_exp3 %>%
+  filter(!is_consistent, !is_catch_trial, chose_gems) %>%
+  group_by(subj_id) %>%
+  summarise(pstone = mean(chose_onlystones_p2))
+
+library(dplyr)
+library(ggplot2)
+library(ggtext) 
+
+combined <- bind_rows(
+  exp1_inconsistent %>% mutate(exp = "1"),
+  exp2_inconsistent %>% mutate(exp = "2"),
+  exp3_inconsistent %>% mutate(exp = "3")
+) %>%
+  mutate(exp = factor(exp, levels = c("1", "2", "3")))
+  
+
+
+summary_df <- combined %>%
+  group_by(exp) %>%
+  summarise(
+    mean_pstone = mean(pstone, na.rm = TRUE),
+    se_pstone   = sd(pstone, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  )
+
+
+asterisk_df_pstones <- summary_df %>%
+  filter(exp != 3) %>%          
+  mutate(
+    label = "***",
+    y = mean_pstone + se_pstone + 0.01  
+  )
+
+
+pstones_only_plot <-ggplot(summary_df, aes(x = exp, y = mean_pstone)) +
+  geom_errorbar(
+    aes(ymin = mean_pstone - se_pstone,
+        ymax = mean_pstone + se_pstone),
+    width = 0.12,
+    linewidth = 0.8
+  ) +
+  geom_point(
+    shape = 23,           
+    size = 3,
+    fill = "black",
+    color = "black"
+  ) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black", linewidth = 0.8) +
+  scale_y_continuous(
+    limits = c(0.3, 0.8),
+    breaks = seq(0.1, 1.1, by = 0.1),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    x = "Experiment",
+    y = "P(*stones only*)"
+  ) +
+  theme_minimal(base_size = 12) +
+   theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+  ) + 
+    theme(legend.position = "none",
+        axis.title.y = element_markdown(size = 14),
+        axis.title.x = element_markdown(size = 14),
+        axis.text = element_text(size = 12)) + 
+  geom_text(
+    data = asterisk_df_pstones,
+    aes(x = exp, y = y, label = label),
+    inherit.aes = FALSE,
+    size = 6,
+    vjust = 0,
+    fontface = 'bold'
+  )
+
+
+
+
+
+higher_df_exp1 <- two_parts_df_exp1 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  ) 
+
+higher_df_exp2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  ) 
+
+higher_df_exp3 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  )  
+
+library(dplyr)
+library(ggplot2)
+
+per_subj_higher_exp1 <- higher_df_exp1 %>%
+  group_by(subj_id) %>%
+  summarise(p_higher = mean(higher, na.rm = TRUE), .groups = "drop")
+
+per_subj_higher_exp2 <- higher_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(p_higher = mean(higher, na.rm = TRUE), .groups = "drop")
+
+per_subj_higher_exp3 <- higher_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(p_higher = mean(higher, na.rm = TRUE), .groups = "drop")
+
+combined_higher <- bind_rows(
+  per_subj_higher_exp1 %>% mutate(exp = "1"),
+  per_subj_higher_exp2 %>% mutate(exp = "2"),
+  per_subj_higher_exp3 %>% mutate(exp = "3")
+) %>%
+  mutate(exp = factor(exp, levels = c("1", "2", "3")))
+
+summary_higher <- combined_higher %>%
+  group_by(exp) %>%
+  summarise(
+    mean_ph = mean(p_higher, na.rm = TRUE),
+    se_ph   = sd(p_higher, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  )
+
+asterisk_df_phigher <- summary_higher %>%        
+  mutate(
+    label = "***",
+    y = mean_ph + se_ph + 0.01  
+  )
+
+phigher_number_plot <-ggplot(summary_higher, aes(x = exp, y = mean_ph)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black", linewidth = 0.8) +     
+  geom_errorbar(aes(ymin = mean_ph - se_ph, ymax = mean_ph + se_ph),
+                width = 0.12, linewidth = 0.8) +
+  geom_point(shape = 23, size = 3, fill = "black", color = "black") +                    
+  scale_y_continuous(limits = c(0.3, 0.8), breaks = seq(0.1, 1.1, 0.1), expand = expansion(mult = c(0, 0.08))) +
+  labs(
+    x = "Experiment",
+    y = "P(*higher number*)",
+  ) +
+  theme_minimal(base_size = 12) +
+   theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+  )  + 
+    theme(legend.position = "none",
+        axis.title.y = element_markdown(size = 14),
+        axis.title.x = element_markdown(size = 14),
+        axis.text = element_text(size = 12)) + 
+  geom_text(
+    data = asterisk_df_phigher,
+    aes(x = exp, y = y, label = label),
+    inherit.aes = FALSE,
+    size = 6,
+    vjust = 0,
+    fontface = 'bold'
+  )
+
+
+
+
+library(lme4)
+library(ggtext) 
+
+pgems_exp1 <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial, !chose_gems, !is_consistent, chose_onlystones)
+
+pgems_exp2 <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, !chose_gems, !is_consistent, chose_onlystones)
+
+
+library(dplyr)
+library(ggplot2)
+
+
+per_subj_pgems_exp1 <- pgems_exp1 %>%
+  group_by(subj_id) %>%
+  summarise(p_gems = mean(chose_gems_p2, na.rm = TRUE), .groups = "drop")
+
+per_subj_pgems_exp2 <- pgems_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(p_gems = mean(chose_gems_p2, na.rm = TRUE), .groups = "drop")
+
+combined_pgems <- bind_rows(
+  per_subj_pgems_exp1 %>% mutate(exp = "1"),
+  per_subj_pgems_exp2 %>% mutate(exp = "2"),
+) %>%
+  mutate(exp = factor(exp, levels = c("1", "2")))
+
+
+summary_pgems <- combined_pgems %>%
+  group_by(exp) %>%
+  summarise(
+    mean_pg = mean(p_gems, na.rm = TRUE),
+    se_pg   = sd(p_gems, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  )
+
+asterisk_df_pgems <- summary_pgems %>%
+  mutate(
+    label = case_when(
+      exp == 1 ~ "***",
+      exp == 2 ~ "",
+      TRUE ~ NA_character_
+    ),
+    y = mean_pg + se_pg + 0.01
+  ) %>%
+  filter(!is.na(label))   
+
+
+pgems_plot<- ggplot(summary_pgems, aes(x = exp, y = mean_pg)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black", linewidth = 0.8) +
+  geom_errorbar(aes(ymin = mean_pg - se_pg, ymax = mean_pg + se_pg),
+                width = 0.12, linewidth = 0.8) +
+  geom_point(shape = 23, size = 3, fill = "black", color = "black") +
+  scale_y_continuous(limits = c(0.3, 0.8), breaks = seq(0.1, 1.1, 0.1), expand = expansion(mult = c(0, 0.08))) +
+  labs(
+    x = "Experiment",
+    y = "P(*gems*)",
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+  ) + 
+    theme(legend.position = "none",
+        axis.title.y = element_markdown(size = 14),
+        axis.title.x = element_markdown(size = 14),
+        axis.text = element_text(size = 12)) + 
+  geom_text(
+  data = asterisk_df_pgems,
+  aes(x = exp, y = y, label = label),
+  inherit.aes = FALSE,
+  size = 6,
+  fontface = "bold",
+  vjust = 0
+)
+
+
+library(dplyr)
+library(ggplot2)
+library(ggtext)
+
+acc_subj <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    gem_chosen_by = case_when(
+      chose_gems ~ "Self",
+      computer_chose_gems ~ "Computer",
+      !chose_gems & !computer_chose_gems ~ "None"
+    ),
+    gem_chosen_by = factor(gem_chosen_by, levels = c("Self", "Computer", "None"))
+  ) %>%
+  group_by(subj_id, gem_chosen_by) %>%
+  summarise(mean_acc = mean(is_consistent, na.rm = TRUE), .groups = "drop")
+
+acc_summary <- acc_subj %>%
+  group_by(gem_chosen_by) %>%
+  summarise(
+    mean_acc_mean = mean(mean_acc, na.rm = TRUE),
+    se_acc = sd(mean_acc, na.rm = TRUE) / sqrt(n()),
+    n_acc = n(),
+    .groups = "drop"
+  )
+
+conf_subj <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  mutate(
+    gem_chosen_by = case_when(
+      chose_gems ~ "Self",
+      computer_chose_gems ~ "Computer",
+      !chose_gems & !computer_chose_gems ~ "None"
+    ),
+    gem_chosen_by = factor(gem_chosen_by, levels = c("Self", "Computer", "None"))
+  ) %>%
+  group_by(subj_id, gem_chosen_by) %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE), .groups = "drop")
+
+conf_summary <- conf_subj %>%
+  group_by(gem_chosen_by) %>%
+  summarise(
+    mean_conf_mean = mean(mean_conf, na.rm = TRUE),
+    se_conf = sd(mean_conf, na.rm = TRUE) / sqrt(n()),
+    n_conf = n(),
+    .groups = "drop"
+  )
+
+summary_combined <- full_join(acc_summary, conf_summary, by = "gem_chosen_by")
+
+conf_to_left <- function(conf)  0.6 + (conf - 60) * 0.01
+left_to_conf <- function(y)  60 + (y - 0.6) * 100
+
+summary_combined <- summary_combined %>%
+  mutate(
+    mean_conf_left = conf_to_left(mean_conf_mean),
+    se_conf_left = se_conf * 0.01  
+  )
+
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggtext)
+
+dodge <- position_dodge(width = 0.6)
+
+plotting_df <- bind_rows(
+  summary_combined %>%
+    transmute(
+      gem_chosen_by,
+      measure = "Reconstruction",
+      mean_left = mean_acc_mean,
+      se_left   = se_acc
+    ),
+  summary_combined %>%
+    transmute(
+      gem_chosen_by,
+      measure = "Confidence",
+      mean_left = mean_conf_left,
+      se_left   = se_conf_left
+    )
+) %>%
+  mutate(
+    gem_chosen_by = factor(gem_chosen_by, levels = c("Self", "Computer", "None")),
+    measure = factor(measure, levels = c("Reconstruction", "Confidence"))
+  )
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+
+make_bins <- function(max_trial, bin_width = 5) {
+  breaks <- seq(0.5, max_trial + 0.5, by = bin_width)
+  starts <- seq(1, max_trial, by = bin_width)
+  ends   <- pmin(starts + bin_width - 1, max_trial)
+  labels <- paste0(starts, "–", ends)
+  list(breaks = breaks, labels = labels)
+}
+
+
+make_phase_plot_dynamic <- function(df,
+                                    max_trial,
+                                    plot_subtitle = NULL,
+                                    plot_title = NULL,
+                                    bin_width = 5) {
+  bins <- make_bins(max_trial = max_trial, bin_width = bin_width)
+  breaks <- bins$breaks
+  bin_labels <- bins$labels
+  
+  df_long <- df %>%
+    pivot_longer(
+      cols = c(chose_onlystones, chose_onlystones_p2),
+      names_to = "phase_raw",
+      values_to = "chose_onlystones"
+    ) %>%
+    mutate(
+      phase = case_when(
+        phase_raw == "chose_onlystones"    ~ "part1",
+        phase_raw == "chose_onlystones_p2" ~ "part2",
+        TRUE ~ NA_character_
+      ),
+      phase = factor(phase, levels = c("part1", "part2")),
+      bin = cut(
+        trial_num,
+        breaks = breaks,
+        labels = bin_labels,
+        include.lowest = TRUE,
+        right = TRUE
+      ),
+      bin = factor(bin, levels = bin_labels)
+    ) %>%
+    filter(!is.na(phase))
+  
+  by_subj_bias <- df_long %>%
+    group_by(subj_id, phase, bin) %>%
+    summarise(bias = mean(chose_onlystones, na.rm = TRUE), .groups = "drop")
+  
+  group_summary_sub <- by_subj_bias %>%
+    group_by(phase, bin) %>%
+    summarise(
+      m  = mean(bias, na.rm = TRUE),
+      se = sd(bias, na.rm = TRUE) / sqrt(n()),
+      .groups = "drop"
+    )
+  
+  p <- ggplot(group_summary_sub,
+              aes(x = bin, y = m,
+                  color = phase,
+                  shape = phase,
+                  group = phase)) +
+    geom_hline(yintercept = 1/3, linewidth = 0.3) +
+    geom_line(linewidth = 0.7) +
+    geom_point(size = 2) +
+    geom_errorbar(aes(ymin = m - se, ymax = m + se), width = 0.2) +
+    labs(x = "Trial Bin", y = "P(*stones only*)", title = plot_title, subtitle = plot_subtitle) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(size = 11, face = "bold"),
+          plot.subtitle = element_text(size = 9),
+          legend.position = "none") +
+    scale_y_continuous(limits = c(0.15, 0.4))
+  
+  return(p)
+}
+
+
+plot_left <- plotting_df %>%
+  filter(measure == "Reconstruction") %>%
+  ggplot(aes(x = gem_chosen_by, y = mean_left)) +
+  geom_errorbar(aes(ymin = mean_left - se_left, ymax = mean_left + se_left),
+                width = 0.12, linewidth = 0.8, color = "black", position = position_dodge(width = 0.2)) +
+  geom_point(shape = 23, size = 3, fill = "black", color = "black", position = position_dodge(width = 0.2)) +
+  scale_y_continuous(limits = c(0.6, 0.8), breaks = seq(0.6, 0.8, by = 0.05)) +
+  labs(x = "Gems in Part 1 Chosen By:", y = "P(*remembered*)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.y = element_markdown(size = 14),
+        axis.title.x = element_markdown(size = 14),
+        axis.text = element_text(size = 12))
+
+
+plot_right <- plotting_df %>%
+  filter(measure == "Confidence") %>%
+  ggplot(aes(x = gem_chosen_by, y = mean_left)) +
+  geom_errorbar(aes(ymin = mean_left - se_left, ymax = mean_left + se_left),
+                width = 0.12, linewidth = 0.8, color = "black", position = position_dodge(width = 0.2)) +
+  geom_point(shape = 23, size = 3, fill = "black", color = "black", position = position_dodge(width = 0.2)) +
+  scale_y_continuous(
+    name = "Confidence",
+    limits = c(0.6, 0.8),
+    breaks = seq(0.6, 0.8, by = 0.05),
+    labels = function(x) {
+      if (exists("left_to_conf") && is.function(left_to_conf)) left_to_conf(x) else (x*150 - 30)
+    }) +
+  labs(x = "Gems in Part 1 Chosen By:") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.y = element_markdown(size = 14),
+        axis.title.x = element_markdown(size = 14),
+        axis.text = element_text(size = 12))
+
+acc_wide <- acc_subj %>%
+  filter(gem_chosen_by %in% c("Self", "Computer", "None")) %>%
+  pivot_wider(names_from = gem_chosen_by, values_from = mean_acc)
+
+acc_ttest_selfcomputer <- t.test(acc_wide$Self, acc_wide$Computer, paired = TRUE)
+acc_ttest_computernone <- t.test(acc_wide$Computer, acc_wide$None, paired = TRUE)
+
+conf_wide <- conf_subj %>%
+  filter(gem_chosen_by %in% c("Self", "Computer", "None")) %>%
+  pivot_wider(names_from = gem_chosen_by, values_from = mean_conf)
+
+conf_ttest_selfcomputer <- t.test(conf_wide$Self, conf_wide$Computer, paired = TRUE)
+conf_ttest_computernone <- t.test(conf_wide$Computer, conf_wide$None, paired = TRUE)
+
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.2f", p)
+}
+
+lab_acc_selfcomp  <- fmt_p(acc_ttest_selfcomputer$p.value)
+lab_acc_compnone  <- fmt_p(acc_ttest_computernone$p.value)
+lab_conf_selfcomp <- fmt_p(conf_ttest_selfcomputer$p.value)
+lab_conf_compnone <- fmt_p(conf_ttest_computernone$p.value)
+
+levs <- levels(plotting_df$gem_chosen_by)
+x_self     <- which(levs == "Self")
+x_computer <- which(levs == "Computer")
+x_none     <- which(levs == "None")
+
+
+find_left_for_conf <- function(conf_val) {
+  if (exists("left_to_conf") && is.function(left_to_conf)) {
+    tryCatch({
+      uniroot(function(l) left_to_conf(l) - conf_val, lower = 0.55, upper = 0.85)$root
+    }, error = function(e) (conf_val + 30) / 150)
+  } else {
+    (conf_val + 30) / 150
+  }
+}
+
+acc_y_selfcomp <- 0.70
+acc_y_compnone <- 0.675
+conf_y_selfcomp <- find_left_for_conf(70)
+conf_y_compnone <- find_left_for_conf(67.5)
+
+bar_pad   <- 0
+text_pad  <- 0.006
+text_size <- 5
+line_w    <- 0.6
+
+seg_df_acc <- tibble::tibble(
+  x    = c(x_self + bar_pad,  x_computer + bar_pad),
+  xend = c(x_computer - bar_pad, x_none - bar_pad),
+  y    = c(acc_y_selfcomp, acc_y_compnone),
+  label = c(lab_acc_selfcomp, lab_acc_compnone)
+)
+
+text_df_acc <- tibble::tibble(
+  x = c((x_self + x_computer)/2, (x_computer + x_none)/2),
+  y = seg_df_acc$y - text_pad,
+  label = seg_df_acc$label
+)
+
+seg_df_conf <- tibble::tibble(
+  x    = c(x_self + bar_pad,  x_computer + bar_pad),
+  xend = c(x_computer - bar_pad, x_none - bar_pad),
+  y    = c(conf_y_selfcomp, conf_y_compnone),
+  label = c(lab_conf_selfcomp, lab_conf_compnone)
+)
+
+text_df_conf <- tibble::tibble(
+  x = c((x_self + x_computer)/2, (x_computer + x_none)/2),
+  y = seg_df_conf$y - text_pad,
+  label = seg_df_conf$label
+)
+
+cap_half   <- 0.01
+cap_height <- 0.005
+
+
+premembered_exp3_plot <- plot_left +
+  geom_segment(
+    data = seg_df_acc,
+    aes(x = x, xend = xend, y = y, yend = y),
+    inherit.aes = FALSE,
+    color = "black",
+    linewidth = line_w,
+    lineend = "butt"
+  ) +
+  geom_segment(
+  data = seg_df_acc,
+  aes(x = x, xend = x,
+      y = y, yend = y + cap_height),
+  inherit.aes = FALSE,
+  color = "black",
+  linewidth = line_w
+) +
+geom_segment(
+  data = seg_df_acc,
+  aes(x = xend, xend = xend,
+      y = y, yend = y + cap_height ),
+  inherit.aes = FALSE,
+  color = "black",
+  linewidth = line_w
+)+
+  geom_text(
+    data = text_df_acc,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    size = text_size,
+    vjust = 1
+  )
+
+
+conf_exp3_plot <- plot_right +
+  geom_segment(
+    data = seg_df_conf,
+    aes(x = x, xend = xend, y = y, yend = y),
+    inherit.aes = FALSE,
+    color = "black",
+    linewidth = line_w,
+    lineend = "butt"
+  ) +
+  geom_segment(
+  data = seg_df_acc,
+  aes(x = x, xend = x,
+      y = y, yend = y + cap_height),
+  inherit.aes = FALSE,
+  color = "black",
+  linewidth = line_w
+) +
+geom_segment(
+  data = seg_df_acc,
+  aes(x = xend, xend = xend,
+      y = y, yend = y + cap_height ),
+  inherit.aes = FALSE,
+  color = "black",
+  linewidth = line_w
+)+
+  geom_text(
+    data = text_df_conf,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    size = text_size,
+    vjust = 1
+  )
+
+
+plot <- (pstones_only_plot + phigher_number_plot + pgems_plot + plot_layout(axis_titles = "collect")) #/ (premembered_exp3_plot + conf_exp3_plot + plot_layout(axis_titles = "collect"))
+
+print(plot)
+
+ggsave("biases.png", plot, width = 8, height = 3, dpi = 300)
+
+
+
+```
+
+
+
+```{r conf_exp2_plot, cache=F}
+
+library(dplyr)
+library(ggplot2)
+
+conf_summary <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE)) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  ) 
+
+
+conf_subj <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE), .groups = "drop")
+
+
+conf_wide <- conf_subj %>%
+  pivot_wider(names_from = chose_gems, values_from = mean_conf_subj) %>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+conf_t <- t.test(conf_wide$`TRUE`, conf_wide$`FALSE`, paired = TRUE)
+
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.3f", p)
+}
+p_lab <- fmt_p(conf_t$p.value)
+
+x1 <- 1
+x2 <- 2
+y_top <- 55
+y <- y_top - 2
+cap_h <- 0.8  
+text_y <- y - 1.5
+
+
+
+conf_exp2_plot <- ggplot(conf_summary, aes(x = chose_gems, y = mean_conf)) +
+  geom_errorbar(aes(ymin = mean_conf - se_conf, ymax = mean_conf + se_conf),
+                width = 0.12, linewidth = 0.8) +
+  geom_point(aes(color = chose_gems, fill = chose_gems), shape = 23, size = 3) +
+  scale_y_continuous(
+    name = "Confidence",
+    limits = c(50, 70),
+    breaks = seq(50, 70, by = 10)
+  ) +
+  labs(x = "Part 1 Outcome") +
+  scale_color_manual(
+    values = c(
+      `TRUE`  = "#22C55E",
+      `FALSE` = "grey70"
+    )
+  ) +
+  scale_fill_manual(
+  values = c(
+    `TRUE`  = "#22C55E",
+    `FALSE` = "grey70"
+  )
+) + 
+  scale_x_discrete(
+  labels = c(
+    `FALSE` = "Stones",
+    `TRUE`  = "Gems"
+  )
+) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+conf_exp2_plot <- conf_exp2_plot +
+  geom_segment(aes(x = x1, xend = x2, y = y, yend = y), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x1, xend = x1, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x2, xend = x2, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  annotate("text", x = (x1 + x2) / 2, y = text_y, label = p_lab, size = 5, vjust = 0)
+
+
+conf_exp2_plot
+
+
+```
+
+
+```{r conf_more, cache=F,  fig.width=5, fig.height = 4}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggtext) 
+
+
+conf_subj_all <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  mutate(correctness = ifelse(is_consistent, "Correct", "Incorrect")) %>%
+  group_by(subj_id, correctness, chose_gems) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE), .groups = "drop")
+
+gem_conf <- two_parts_df_exp2 %>%
+  group_by(subj_id, chose_gems) %>%
+  filter(!is_catch_trial) %>%
+  summarise(
+    mean_conf = mean(confidence)
+  )
+
+gem_conf_wide <- gem_conf %>%
+  pivot_wider(
+    names_from = chose_gems,
+    values_from = mean_conf,
+    names_prefix = "chose_gems_"
+  )
+
+gem_ttest <- t.test(
+  gem_conf_wide$chose_gems_TRUE,
+  gem_conf_wide$chose_gems_FALSE,
+  paired = TRUE
+)
+
+
+conf_summary_all <- conf_subj_all %>%
+  group_by(correctness, chose_gems) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  )
+
+
+conf_subj_correct <- conf_subj_all %>%
+  filter(correctness == "Correct") %>%
+  pivot_wider(names_from = chose_gems, values_from = mean_conf_subj) %>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+conf_t_correct <- t.test(conf_subj_correct$`TRUE`, conf_subj_correct$`FALSE`, paired = TRUE)
+
+
+
+
+conf_subj_incorrect <- conf_subj_all %>%
+  filter(correctness == "Incorrect") %>%
+  pivot_wider(names_from = chose_gems, values_from = mean_conf_subj) %>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+conf_t_incorrect <- t.test(conf_subj_incorrect$`TRUE`, conf_subj_incorrect$`FALSE`, paired = TRUE)
+
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.3f", p)
+}
+p_lab_correct   <- fmt_p(conf_t_correct$p.value)
+p_lab_incorrect <- fmt_p(conf_t_incorrect$p.value)
+
+conf_summary_all <- conf_summary_all %>%
+  mutate(x_level = interaction(correctness, chose_gems, sep = "_")) %>%
+  mutate(x_level = factor(
+    x_level,
+    levels = c("Correct_FALSE", "Correct_TRUE", "Incorrect_FALSE", "Incorrect_TRUE")
+  ))
+
+x1 <- 1
+x2 <- 2
+x_mid <- (x1 + x2) / 2
+
+y_correct <- 53
+cap_h_correct <- 1.5
+text_y_correct <- y_correct - 2.5   # below bracket
+
+y_incorrect <- 55
+cap_h_incorrect <- 1.5
+text_y_incorrect <- y_incorrect + 2.5  # above bracket
+
+
+bracket_correct_h  <- data.frame(correctness = "Correct", x = x1, xend = x2, y = y_correct, yend = y_correct)
+bracket_correct_cap1 <- data.frame(correctness = "Correct", x = x1, xend = x1, y = y_correct, yend = y_correct + cap_h_correct)
+bracket_correct_cap2 <- data.frame(correctness = "Correct", x = x2, xend = x2, y = y_correct, yend = y_correct + cap_h_correct)
+
+bracket_incorrect_h  <- data.frame(correctness = "Incorrect", x = x1, xend = x2, y = y_incorrect, yend = y_incorrect)
+bracket_incorrect_cap1 <- data.frame(correctness = "Incorrect", x = x1, xend = x1, y = y_incorrect, yend = y_incorrect - cap_h_incorrect)
+bracket_incorrect_cap2 <- data.frame(correctness = "Incorrect", x = x2, xend = x2, y = y_incorrect, yend = y_incorrect - cap_h_incorrect)
+
+
+conf_combined_plot <- ggplot(
+  conf_summary_all,
+  aes(x = factor(chose_gems), y = mean_conf)
+) +
+  geom_errorbar(
+    aes(ymin = mean_conf - se_conf, ymax = mean_conf + se_conf),
+    width = 0.12, linewidth = 0.8
+  ) +
+  geom_point(
+    aes(color = factor(chose_gems), fill = factor(chose_gems)),
+    shape = 23, size = 3
+  ) +
+  scale_y_continuous(
+    name = "Confidence",
+    limits = c(40, 70),
+    breaks = seq(40, 70, by = 10)
+  ) +
+  labs(x = "Part 1 Outcome") +
+  scale_color_manual(
+    values = c(`TRUE` = "#22C55E", `FALSE` = "grey70")
+  ) +
+  scale_fill_manual(
+    values = c(`TRUE` = "#22C55E", `FALSE` = "grey70")
+  ) +
+  scale_x_discrete(
+    labels = c(`FALSE` = "Stones", `TRUE` = "Gems")
+  ) +
+  facet_wrap(
+    ~ correctness,
+    nrow = 1,
+    labeller = labeller(
+      correctness = c(
+        "Correct" = "Correct",
+        "Incorrect" = "Incorrect"
+      )
+    )
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12),
+
+    strip.text = element_text(size = 14, face = "bold"),
+    strip.background = element_blank()
+  )
+
+
+conf_combined_plot <- conf_combined_plot +
+  geom_segment(
+    data = data.frame(correctness = "Correct"),
+    aes(x = x1, xend = x2, y = y_correct, yend = y_correct),
+    inherit.aes = FALSE, linewidth = 0.6
+  ) +
+  geom_segment(
+    data = data.frame(correctness = "Correct"),
+    aes(x = x1, xend = x1, y = y_correct, yend = y_correct + cap_h_correct),
+    inherit.aes = FALSE, linewidth = 0.6
+  ) +
+  geom_segment(
+    data = data.frame(correctness = "Correct"),
+    aes(x = x2, xend = x2, y = y_correct, yend = y_correct + cap_h_correct),
+    inherit.aes = FALSE, linewidth = 0.6
+  ) +
+  geom_text(
+    data = data.frame(correctness = "Correct"),
+    aes(x = x_mid, y = text_y_correct, label = "***", fontface = 'bold' ),
+    inherit.aes = FALSE, size = 5
+  ) +
+  geom_segment(
+    data = data.frame(correctness = "Incorrect"),
+    aes(x = x1, xend = x2, y = y_incorrect, yend = y_incorrect),
+    inherit.aes = FALSE, linewidth = 0.6
+  ) +
+  geom_segment(
+    data = data.frame(correctness = "Incorrect"),
+    aes(x = x1, xend = x1, y = y_incorrect, yend = y_incorrect - cap_h_incorrect),
+    inherit.aes = FALSE, linewidth = 0.6
+  ) +
+  geom_segment(
+    data = data.frame(correctness = "Incorrect"),
+    aes(x = x2, xend = x2, y = y_incorrect, yend = y_incorrect - cap_h_incorrect),
+    inherit.aes = FALSE, linewidth = 0.6
+  ) +
+  geom_text(
+    data = data.frame(correctness = "Incorrect"),
+    aes(x = x_mid, y = text_y_incorrect,  label = "***", fontface = 'bold' ),
+    inherit.aes = FALSE, size = 5
+  )
+
+
+conf_combined_plot
+
+
+ggsave("conf_combined_exp2.png",
+       conf_combined_plot,
+       width = 5,
+       height = 4,
+       dpi = 300)
+
+
+conf_correct <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, is_consistent) %>%
+  summarise(
+    mean_conf = mean(confidence, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+conf_wide <- conf_correct %>%
+  pivot_wider(
+    names_from = is_consistent,
+    values_from = mean_conf,
+    names_prefix = "consistent_"
+  )
+
+t.test(
+  conf_wide$consistent_TRUE,
+  conf_wide$consistent_FALSE,
+  paired = TRUE
+)
+
+library(lme4)
+library(lmerTest)  
+
+conf_lmm <- lmer(
+  confidence ~ chose_gems * is_consistent + (1 | subj_id),
+  data = two_parts_df_exp2 %>% filter(!is_catch_trial)
+)
+
+anova(conf_lmm, type = 3)
+
+
+```
+
+difference between chose gems and chose stones in part 1 in part 2 correct trials `r apa_print(conf_t_correct)$statistic`
+
+difference between chose gems and chose stones in part 1 in part 2 incorrect trials `r apa_print(conf_t_incorrect)$statistic`
+
+difference between correct and incorrect part 2 confidence `r apa_print(t.test(conf_wide$consistent_TRUE,conf_wide$consistent_FALSE,paired = TRUE))$statistic`
+
+t-test between correct and incorrect (irrespective of part 1 choice): `r apa_print(t.test(conf_wide$consistent_TRUE,conf_wide$consistent_FALSE,paired = TRUE))$statistic`
+
+t-test between gems/stones in part 1, for incorrect decisions: `r apa_print(conf_t_incorrect)$statistic`
+
+t-test between gems/stones in part 1 (irrespective of accuracy): `r apa_print(gem_ttest)$statistic`
+
+A linear mixed-effects model was fit to predict confidence with chose_gems (Gems vs. Stones), is_consistent (Correct vs. Incorrect), and their interaction as fixed effects, and a random intercept for participant (subj_id). The ANOVA on the mixed model tested the interaction between Part 1 decision and Part 2 accuracy. The interaction of Part 1 decision and Part 2 accuracy was 'reported below', `apa_print(anova(conf_lmm, type = 3))$statistic`) (see ANOVA table).
+
+
+```{r correlation_exp1_2, fig.width=6, fig.height = 3, cache=F}
+
+
+library(ggplot2)
+library(patchwork)
+library(ggtext)
+
+cor_label <- function(x, y) {
+  ct <- cor.test(x, y, method = "pearson")
+  
+  p_text <- if (ct$p.value < 0.001) {
+    "p < 0.001"
+  } else {
+    paste0("p = ", signif(ct$p.value, 3))
+  }
+  
+  paste0(
+    "r = ", round(ct$estimate, 2), "\n",
+    p_text
+  )
+}
+
+make_cor_plot <- function(df, x_col, y_col, title,
+                          color = "black", x_lab = NULL, y_lab = NULL) {
+  
+  label <- cor_label(x, y)  
+  
+  ggplot(df, aes(x = .data[[x_col]], y = .data[[y_col]])) +
+    geom_point(alpha = 0.1) +
+    geom_smooth(method = "lm", se = FALSE, color = color) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", alpha = 0.4) +
+    annotate(
+      "text",
+      x = -Inf, y = Inf,
+      label = label,
+      hjust = -0.1, vjust = 1.1,
+      size = 5
+    ) +
+    labs(
+      title = title,
+      x = ifelse(is.null(x_lab), x_col, x_lab),
+      y = ifelse(is.null(y_lab), y_col, y_lab)
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10, hjust = 0.5),
+          axis.text = element_text(size = 14)) + 
+    coord_cartesian(xlim = c(0, 50), ylim = c(0, 50))
+}
+
+
+total_chose_gems_part1 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(total_gems = sum(chose_gems, na.rm = TRUE))
+
+estimate_chose_gems_part1 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part1, na.rm = TRUE))
+
+correlation_data_part1 <- inner_join(total_chose_gems_part1,
+                                     estimate_chose_gems_part1,
+                                     by = "subj_id")
+label_part1 <- cor_label(
+  correlation_data_part1$total_gems,
+  correlation_data_part1$mean_estimate
+)
+
+
+
+total_chose_gems_part2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(total_chose_gems_p2 = sum(chose_gems_p2, na.rm = TRUE))
+
+estimate_chose_gems_part2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part2, na.rm = TRUE))
+
+cor_data_part2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(
+    consistent = sum(is_consistent),
+    mean_estimate_part2 = mean(number_correct_part2)
+  )
+
+total_consistent <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(total_consistent = sum(is_consistent))
+estimate_part2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part2))
+
+stones_part2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  mutate(
+    stones_chosen = chose_other_p2|chose_onlystones_p2
+  ) %>%
+  summarise(stones= sum(stones_chosen))
+
+
+correlation_data_part2 <- inner_join(total_chose_gems_part1,
+                                     total_chose_gems_part2,
+                                     by = "subj_id")
+
+correlation_data_part3 <- inner_join(estimate_part2,
+                                     total_chose_gems_part2,
+                                     by = "subj_id")
+
+
+
+# label_part2 <- cor_label(
+#   correlation_data_part2$consistent,
+#   correlation_data_part2$mean_estimate
+# )
+
+p1<- make_cor_plot(
+  correlation_data_part1,
+  x_col = "total_gems",
+  y_col = "mean_estimate",
+  title = "",
+  color = "black",
+  x_lab = "",
+  y_lab = ""
+)
+
+p2 <- make_cor_plot(
+  correlation_data_part2,
+  x_col = "total_gems",
+  y_col = "total_chose_gems_p2",
+  title = "",
+  color = "black",
+  x_lab = "",
+  y_lab = ""
+)
+
+library(patchwork)
+library(cowplot)
+
+exp2_cor_plot <- ggdraw(p1 + p2) +
+  draw_label(
+    "True Number",
+    x = 0.5,
+    y = 0.02,
+    vjust = 0,
+    size = 16,
+    fontface = "bold"
+  ) +
+  draw_label(
+    "Estimate",
+    x = 0.02,
+    y = 0.5,
+    angle = 90,
+    vjust = 1,
+    size = 16,
+    fontface = "bold"
+  ) + 
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 14)) 
+
+ggsave("exp2_cor_plot.png", exp2_cor_plot, 
+       width = 6, height = 3,
+       dpi = 300)
+  
+
+
+
+
+  
+```
+
+
+
+
+
+
+```{r correlation_matrice, fig.width = 6, fig.height = 6}
+
+library(ggtext)
+
+
+cor_label <- function(x, y) {
+  ct <- cor.test(x, y, method = "pearson")
+  
+  p_text <- if (ct$p.value < 0.001) {
+    "p < 0.001"
+  } else {
+    paste0("p = ", signif(ct$p.value, 3))
+  }
+  
+  paste0(
+    "r = ", round(ct$estimate, 2), "\n",
+    p_text
+  )
+}
+
+make_cor_plot <- function(df, x_col, y_col, title,
+                          color = "black", x_lab = NULL, y_lab = NULL) {
+
+  label <- cor_label(x, y)
+  
+  ggplot(df, aes(x = .data[[x_col]], y = .data[[y_col]])) +
+    geom_point(alpha = 0.3) +
+    geom_smooth(method = "lm", se = FALSE, color = color) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", alpha = 0.4) +
+    annotate(
+      "text",
+      x = -Inf, y = Inf,
+      label = label,
+      hjust = -0.1, vjust = 1.1,
+      size = 5
+    ) +
+    labs(
+      title = title,
+      x = ifelse(is.null(x_lab), x_col, x_lab),
+      y = ifelse(is.null(y_lab), y_col, y_lab)
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10, hjust = 0.5),
+          axis.text = element_text(size = 14)) + 
+    coord_cartesian(xlim = c(0, 50), ylim = c(0, 50))
+}
+
+
+
+estimate_chose_gems_part1 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part1))
+
+total_chose_gems_part1 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(total_chose_gems = sum(chose_gems))
+
+
+estimate_chose_gems_part1 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part1))
+
+total_rewarded <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  mutate(rewarded = case_when(
+    chose_gems|computer_chose_gems ~ TRUE,
+    TRUE~FALSE
+  )) %>%
+  summarise(total_rewarded = sum(rewarded))
+
+
+
+total_consistent <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(total_consistent = sum(is_consistent))
+estimate_part2 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part2))
+
+
+
+total_computer_chose_gems <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(total_computer_chose_gems = sum(computer_chose_gems))
+
+estimate_computer_chose_gems <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  summarise(mean_estimate = mean(number_correct_part1_computer))
+
+
+df1 <- inner_join(
+  estimate_chose_gems_part1,
+  total_chose_gems_part1,
+  by = "subj_id"
+)
+
+df2 <- inner_join(
+  estimate_chose_gems_part1,
+  total_rewarded,
+  by = "subj_id"
+)
+
+df3 <- inner_join(
+  estimate_computer_chose_gems,
+  total_computer_chose_gems,
+  by = "subj_id"
+)
+
+df4 <- inner_join(
+  estimate_computer_chose_gems,
+  total_rewarded,
+  by = "subj_id"
+)
+
+p1<- make_cor_plot(
+  df1,
+  x_col = "total_chose_gems",
+  y_col = "mean_estimate",
+  title = "",
+  color = p1_colour,
+  x_lab = "",
+  y_lab = ""
+)
+
+p2 <- make_cor_plot(
+  df2,
+  x_col = "total_rewarded",
+  y_col = "mean_estimate",
+  title = "",
+  color = p1_colour,
+  x_lab = "",
+  y_lab = ""
+)
+
+p3 <- make_cor_plot(
+  df3,
+  x_col = "total_computer_chose_gems",
+  y_col = "mean_estimate",
+  title = "",
+  color = p1_colour,
+  x_lab = "",
+  y_lab = ""
+)
+
+p4 <- make_cor_plot(
+  df4,
+  x_col = "total_rewarded",
+  y_col = "mean_estimate",
+  title = "",
+  color = p1_colour,
+  x_lab = "",
+  y_lab = ""
+)
+
+
+library(cowplot)
+
+plot_core <- (p1 + p2) / (p3 + p4) 
+
+
+
+final_plot <- ggdraw(plot_core) +
+  draw_label(
+    "True Number",
+    x = 0.5,
+    y = 0.02,
+    vjust = 0,
+    size = 16,
+    fontface = "bold"
+  ) +
+  draw_label(
+    "Estimate",
+    x = 0.02,
+    y = 0.5,
+    angle = 90,
+    vjust = 1,
+    size = 16,
+    fontface = "bold"
+  )
+
+print(final_plot  & theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 14)
+  ))
+
+ggsave('cor_matrice.png', 
+        final_plot  & theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 14)
+  ),
+  width = 6,
+  height = 6,
+  dpi = 300
+  )
+
+```
+
+
+## Final Plots
+
+```{r fig1_1, cache=F, fig.width=5, fig.height=4}
+
+library(patchwork)
+
+fig1_1 <- learn_plot_exp1 
+
+print(fig1_1)
+
+ggsave("fig1_1.png", plot = fig1_1, width = 5, 
+  height = 4, 
+  units = "in", 
+  dpi = 300)
+```
+
+```{r fig1_2, cache=F, fig.width=2.5, fig.height = 4}
+
+
+exp1_accuracy <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_acc = mean(acc),
+     se_acc   = sd(acc, na.rm = TRUE) / sqrt(n()),
+    n        = n()
+    
+  )
+
+exp2_accuracy <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_acc = mean(acc),
+     se_acc   = sd(acc, na.rm = TRUE) / sqrt(n()),
+    n        = n()
+    
+  )
+
+exp3_accuracy <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent),
+   
+  )
+
+
+exp1_acc_wide <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    subj_acc = mean(is_consistent)
+  ) %>%
+  pivot_wider(names_from = chose_gems, values_from = subj_acc)%>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+exp2_acc_wide <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    subj_acc = mean(is_consistent)
+  ) %>%
+  pivot_wider(names_from = chose_gems, values_from = subj_acc)%>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+exp1_acc_t <- t.test(exp1_acc_wide$`TRUE`, exp1_acc_wide$`FALSE`, paired=T)
+exp2_acc_t <- t.test(exp2_acc_wide$`TRUE`, exp2_acc_wide$`FALSE`, paired=T)
+
+
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.3f", p)
+}
+exp1_p <- fmt_p(exp1_acc_t$p.value)
+exp2_p <- fmt_p(exp2_acc_t$p.value)
+
+x1 <- 1
+x2 <- 2
+y_top <- 0.55
+y <- y_top - 0.03
+cap_h <- 0.03    
+text_y <- y_top - 0.08
+
+
+
+
+
+premembered_exp1_plot <- ggplot(exp1_accuracy, aes(x = chose_gems, y = mean_acc)) +
+  geom_errorbar(
+    aes(ymin = mean_acc - se_acc, ymax = mean_acc + se_acc),
+    width = 0.12,
+    linewidth = 0.8
+  ) +
+  geom_point(
+    aes(color = chose_gems, fill = chose_gems),
+    shape = 23,  
+    size = 3,
+  ) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", color = "black", linewidth = 0.8) +
+  scale_y_continuous(
+    limits = c(0.3, 0.8),           
+    breaks = seq(0.1, 1.1, by = 0.2),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    x = "Part 1 Outcome",
+    y = "P(*remembered*)"
+  ) +
+  scale_x_discrete(
+  labels = c(
+    `FALSE` = "Stones",
+    `TRUE`  = "Gems"
+  )
+) + 
+  scale_color_manual(
+    values = c(
+      `TRUE`  = "#22C55E",
+      `FALSE` = "grey70"
+    )
+  ) +
+  scale_fill_manual(
+  values = c(
+    `TRUE`  = "#22C55E",
+    `FALSE` = "grey70"
+  )
+) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    legend.position = "none",
+    axis.title.y = element_markdown(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12)
+  ) + 
+  geom_segment(aes(x = x1, xend = x2, y = y, yend = y), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x1, xend = x1, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x2, xend = x2, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  annotate("text", x = (x1 + x2) / 2, y = text_y, label = "***", size = 6, vjust = 0, fontface = "bold")
+
+
+fig1_2 <- premembered_exp1_plot
+
+print(fig1_2)
+
+ggsave("fig1_2.png", plot = fig1_2, width = 2.5, 
+  height = 4, 
+  units = "in", 
+  dpi = 300)
+```
+
+```{r fig2_1, cache=F, fig.width=7, fig.height=4}
+fig2_1 <- learn_plot_exp2
+
+print(fig2_1)
+
+ggsave("fig2_1.png", plot = fig2_1, width = 5, 
+  height = 4, 
+  units = "in", 
+  dpi = 300)
+```
+
+```{r fig2_2, cache=F, fig.width=5, fig.height = 4}
+
+library(patchwork)
+
+exp1_accuracy <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_acc = mean(acc),
+     se_acc   = sd(acc, na.rm = TRUE) / sqrt(n()),
+    n        = n()
+    
+  )
+
+exp2_accuracy <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent)
+  ) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_acc = mean(acc),
+     se_acc   = sd(acc, na.rm = TRUE) / sqrt(n()),
+    n        = n()
+    
+  )
+
+exp3_accuracy <- two_parts_df_exp3 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    acc = mean(is_consistent),
+   
+  )
+
+
+exp1_acc_wide <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    subj_acc = mean(is_consistent)
+  ) %>%
+  pivot_wider(names_from = chose_gems, values_from = subj_acc)%>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+exp2_acc_wide <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(
+    subj_acc = mean(is_consistent)
+  ) %>%
+  pivot_wider(names_from = chose_gems, values_from = subj_acc)%>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+exp1_acc_t <- t.test(exp1_acc_wide$`TRUE`, exp1_acc_wide$`FALSE`, paired=T)
+exp2_acc_t <- t.test(exp2_acc_wide$`TRUE`, exp2_acc_wide$`FALSE`, paired=T)
+
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.3f", p)
+}
+exp1_p <- fmt_p(exp1_acc_t$p.value)
+exp2_p <- fmt_p(exp2_acc_t$p.value)
+
+x1 <- 1
+x2 <- 2
+y_top <- 0.55
+y <- y_top - 0.03                
+cap_h <- 0.03                  
+text_y <- y_top - 0.08
+
+acc_y_line <- 0.55    
+acc_cap_h  <- 0.02    
+acc_text_y <- 0.5
+
+premembered_exp2_plot <- ggplot(exp2_accuracy, aes(x = chose_gems, y = mean_acc)) +
+  geom_errorbar(
+    aes(ymin = mean_acc - se_acc, ymax = mean_acc + se_acc),
+    width = 0.12,
+    linewidth = 0.8
+  ) +
+  geom_point(
+    aes(color = chose_gems, fill = chose_gems),
+    shape = 23,       
+    size = 3
+  ) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", color = "black", linewidth = 0.8) +
+  scale_y_continuous(
+    limits = c(0.3, 0.8),
+    breaks = seq(0.1, 1.1, by = 0.2),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    x = "Part 1 Outcome",
+    y = "P(*remembered*)"
+  ) +
+  scale_color_manual(
+    values = c(
+      `TRUE`  = "#22C55E",
+      `FALSE` = "grey70"
+    )
+  ) +
+  scale_fill_manual(
+  values = c(
+    `TRUE`  = "#22C55E",
+    `FALSE` = "grey70"
+  )
+) + 
+  scale_x_discrete(
+  labels = c(
+    `FALSE` = "Stones",
+    `TRUE`  = "Gems"
+  )
+)  +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_markdown(size = 12, hjust = 0.5),
+    legend.position = "none",
+    axis.title.y = element_markdown(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12)
+  )+ 
+  geom_segment(aes(x = 1, xend = 2, y = acc_y_line, yend = acc_y_line), 
+               inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = 1, xend = 1, y = acc_y_line, yend = acc_y_line + acc_cap_h), 
+               inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = 2, xend = 2, y = acc_y_line, yend = acc_y_line + acc_cap_h), 
+               inherit.aes = FALSE, linewidth = 0.6) +
+  annotate("text", x = 1.5, y = acc_text_y, label = "**", fontface = "bold", size = 5, vjust = 0)
+
+library(dplyr)
+library(ggplot2)
+
+conf_summary <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE)) %>%
+  mutate(chose_gems = factor(chose_gems)) %>%
+  group_by(chose_gems) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  ) 
+
+conf_subj <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id, chose_gems) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE), .groups = "drop")
+
+
+conf_wide <- conf_subj %>%
+  pivot_wider(names_from = chose_gems, values_from = mean_conf_subj) %>%
+  filter(!is.na(`TRUE`) & !is.na(`FALSE`))
+
+
+conf_t <- t.test(conf_wide$`TRUE`, conf_wide$`FALSE`, paired = TRUE)
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("p < .001")
+  sprintf("p = %.3f", p)
+}
+p_lab <- fmt_p(conf_t$p.value)
+
+x1 <- 1
+x2 <- 2
+y_top <- 55
+y <- y_top - 2                
+cap_h <- 0.8                  
+text_y <- y - 1.5
+
+
+conf_exp2_plot <- ggplot(conf_summary, aes(x = chose_gems, y = mean_conf)) +
+  geom_errorbar(aes(ymin = mean_conf - se_conf, ymax = mean_conf + se_conf),
+                width = 0.12, linewidth = 0.8) +
+  geom_point(aes(color = chose_gems, fill = chose_gems), shape = 23, size = 3) +
+  scale_y_continuous(
+    name = "Confidence",
+    limits = c(50, 70),
+    breaks = seq(50, 70, by = 10)
+  ) +
+  labs(x = "Part 1 Outcome") +
+  scale_color_manual(
+    values = c(
+      `TRUE`  = "#22C55E",
+      `FALSE` = "grey70"
+    )
+  ) +
+  scale_fill_manual(
+  values = c(
+    `TRUE`  = "#22C55E",
+    `FALSE` = "grey70"
+  )
+) + 
+  scale_x_discrete(
+  labels = c(
+    `FALSE` = "Stones",
+    `TRUE`  = "Gems"
+  )
+) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(size = 14),
+    axis.title.x = element_markdown(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+conf_exp2_plot <- conf_exp2_plot +
+  geom_segment(aes(x = x1, xend = x2, y = y, yend = y), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x1, xend = x1, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  geom_segment(aes(x = x2, xend = x2, y = y, yend = y + cap_h), inherit.aes = FALSE, linewidth = 0.6) +
+  annotate("text", x = (x1 + x2) / 2, y = text_y, label = "***", fontface = "bold", size = 5, vjust = 0)
+
+fig2_2 <- premembered_exp2_plot + conf_combined_plot +
+  plot_layout(
+    widths = c(1, 2),
+    axis_titles = "collect"
+  )
+
+
+print(fig2_2)
+
+ggsave("fig2_2.png", plot = fig2_2, width = 6, 
+  height = 3.5, 
+  units = "in", 
+  dpi = 300)
+
+```
+
+t-test between gem and stone: `r apa_print(conf_t)$statistic`
+
+```{r fig3, cache=F, fig.width = 8, fig.height = 3}
+library(patchwork)
+fig3 <- premembered_exp3_plot + conf_exp3_plot + plot_layout(axis_titles = "collect")
+
+print(fig3)
+         
+
+ggsave("fig3.png", plot = fig3, width = 8, 
+  height = 3, 
+  units = "in", 
+  dpi = 300)
+
+```
+
+```{r fig4, cache=F, fig.width = 8, fig.height=3}
+
+fig4 <- pstones_only_plot + phigher_number_plot + plot_layout(axis_titles = "collect")
+
+print(fig4)
+
+ggsave(
+  "fig4.png", 
+  plot = fig4, 
+  width = 8*2/3, 
+  height = 3, 
+  units = "in", 
+  dpi = 300
+)
+
+pgems_exp1 <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial, !chose_gems, !is_consistent, chose_onlystones)
+
+pgems_exp2 <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, !chose_gems, !is_consistent, chose_onlystones)
+
+per_subj_pgems_exp1 <- pgems_exp1 %>%
+  group_by(subj_id) %>%
+  summarise(p_gems = mean(chose_gems_p2, na.rm = TRUE), .groups = "drop")
+
+per_subj_pgems_exp2 <- pgems_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(p_gems = mean(chose_gems_p2, na.rm = TRUE), .groups = "drop")
+
+model_exp1 <- glmer(
+  p_gems ~ 1 + (1 | subj_id),
+  data = per_subj_pgems_exp1,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"))
+
+model_exp2  <- glmer(
+  p_gems ~ 1 + (1 | subj_id),
+  data = per_subj_pgems_exp2,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"))
+
+
+```
+
+
+P(gems) in trials where participant didnt chose only stones in part 1 and reconstructed incorrectly. Exp. 1 p(gems) = `r printnum(mean(per_subj_pgems_exp1$p_gems))` (`r apa_print(t.test(per_subj_pgems_exp1$p_gems, mu=0.5) )$statistic`). Exp. 2 p(gems) = `r printnum(mean(per_subj_pgems_exp2$p_gems))` (`r apa_print(t.test(per_subj_pgems_exp2$p_gems, mu=0.5) )$statistic`). 
+
+P(gems) in trials where participant didnt chose only stones in part 1 and reconstructed incorrectly. estimated exp. 1 p(gems)  = `r plogis(round(fixef(model_exp1)[1], 2))` (β = `r printnum(round(fixef(model_exp1)[1], 2))`, 
+SE = `r printnum(round(summary(model_exp1)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(model_exp1)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(model_exp1)$coefficients[1, "Pr(>|z|)"])`)
+
+In exp. 2 p(gems) = = `r plogis(round(fixef(model_exp2)[1], 2))` (β = `r printnum(round(fixef(model_exp2)[1], 2))`, 
+SE = `r printnum(round(summary(model_exp2)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(model_exp2)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(model_exp2)$coefficients[1, "Pr(>|z|)"])`)
+
+
+```{r higher_analysis, cache = F}
+
+m <- two_parts_df_exp1 %>%
+  mutate(left_number = 5, middle_number = 4, right_number = 3, stoneposition = "left", response_position_p2 = "middle", response_position = "left")
+
+
+check <- m %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    higher = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ middle_number > right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ middle_number > left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ right_number > middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ right_number > left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ left_number > right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ left_number > middle_number,
+      
+      TRUE ~ NA
+    ))
+
+new <- m %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    
+  )
+
+higher_df_exp1 <- two_parts_df_exp1 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  )
+
+higher_df_exp2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  ) 
+
+
+higher_df_exp3 <- two_parts_df_exp3 %>%
+  group_by(subj_id) %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position_p2 == "middle" ~ middle_number,
+      response_position_p2 == "left" ~ left_number,
+      response_position_p2 == "right" ~ right_number
+    ),
+    num_unchosen = case_when(
+      response_position_p2 == "middle" & response_position == "left"  ~ right_number,
+      response_position_p2 == "middle" & response_position == "right" ~ left_number,
+      
+      response_position_p2 == "right" & response_position == "left"   ~ middle_number,
+      response_position_p2 == "right" & response_position == "middle" ~ left_number,
+      
+      response_position_p2 == "left" & response_position == "middle" ~ right_number,
+      response_position_p2 == "left" & response_position == "right"  ~ middle_number,
+    ))  %>%
+  filter(num_chosen != num_unchosen) %>%
+  mutate(
+    higher = num_chosen>num_unchosen
+  ) 
+
+
+
+
+model_exp1 <- glmer(
+  higher ~ 1 + (1 | subj_id),
+  data = higher_df_exp1,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"))
+
+model_exp2 <- glmer(
+  higher ~ 1 + (1 | subj_id),
+  data = higher_df_exp2,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"))
+
+
+model_exp3 <- glmer(
+  higher ~ 1 + (1 | subj_id),
+  data = higher_df_exp2,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"))
+
+p_higher_exp1 <- higher_df_exp1 %>% group_by(subj_id) %>% summarise(mean_higher = mean(higher)) %>% pull(mean_higher) %>% mean()
+
+p_higher_exp2 <- higher_df_exp2 %>% group_by(subj_id) %>% summarise(mean_higher = mean(higher)) %>% pull(mean_higher) %>% mean(na.rm=T)
+
+p_mean_exp1 <- two_parts_df_exp1 %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position == "middle" ~ middle_number,
+      response_position == "left" ~ left_number,
+      response_position == "right" ~ right_number
+    )
+  ) %>%
+  summarise(mean_num_chosen = mean(num_chosen)) %>%
+  mutate(diff = mean_num_chosen - 3)
+
+p_mean_exp2 <- two_parts_df_exp2 %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position == "middle" ~ middle_number,
+      response_position == "left" ~ left_number,
+      response_position == "right" ~ right_number
+    )
+  ) %>%
+  summarise(mean_num_chosen = mean(num_chosen)) %>%
+  mutate(diff = mean_num_chosen - 3)
+
+p_mean_exp3 <- two_parts_df_exp3 %>% 
+  group_by(subj_id) %>%
+  filter(!is_catch_trial) %>%
+  mutate(
+    num_chosen = case_when(
+      response_position == "middle" ~ middle_number,
+      response_position == "left" ~ left_number,
+      response_position == "right" ~ right_number
+    )
+  ) %>%
+  summarise(mean_num_chosen = mean(num_chosen)) %>%
+  mutate(diff = mean_num_chosen - 3)
+
+```
+
+
+ppts in exp. 1, mean chosen number `r p_mean_exp1 %>% pull(mean_num_chosen) %>% mean() %>% printnum()`. t-test against 3, `r apa_print(t.test(p_mean_exp2$diff))$statistic`
+
+ppts in exp. 2, mean chosen number `r p_mean_exp2 %>% pull(mean_num_chosen) %>% mean() %>% printnum()`. t-test against 3, `r apa_print(t.test(p_mean_exp2$diff))$statistic`
+
+ppts in exp. 3, mean chosen number `r p_mean_exp3 %>% pull(mean_num_chosen) %>% mean() %>% printnum()`. t-test against 3, `r apa_print(t.test(p_mean_exp2$diff))$statistic`
+
+
+
+given incorrect trials in part 2, P(higher_number) in trials where participant didnt chose only stones in part 1 and reconstructed incorrectly. estimated exp. 1 p(higher_number)  = `r plogis(round(fixef(model_exp1)[1], 2))` (β = `r printnum(round(fixef(model_exp1)[1], 2))`, 
+SE = `r printnum(round(summary(model_exp1)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(model_exp1)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(model_exp1)$coefficients[1, "Pr(>|z|)"])`)
+
+In exp. 2 p(higher_number) = = `r plogis(round(fixef(model_exp2)[1], 2))` (β = `r printnum(round(fixef(model_exp2)[1], 2))`, 
+SE = `r printnum(round(summary(model_exp2)$coefficients[1, "Std. Error"], 2))`, 
+*z* = `r printnum(round(summary(model_exp2)$coefficients[1, "z value"], 2))`, 
+*p* `r printp(summary(model_exp2)$coefficients[1, "Pr(>|z|)"])`)
+
+
+
+
+
+```{r pstones_diff, cache=F}
+
+exp1_pstones_diff <- two_parts_df_exp1 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(
+    pstone_p1 = mean(chose_onlystones),
+    pstone_p2 = mean(chose_onlystones_p2)
+  ) %>%
+  mutate(
+    pstone_diff = pstone_p2 - pstone_p1
+  )
+
+t.test(exp1_pstones_diff$pstone_diff)
+
+
+exp2_pstones_diff <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id) %>%
+  summarise(
+    pstone_p1 = mean(chose_onlystones),
+    pstone_p2 = mean(chose_onlystones_p2)
+  ) %>%
+  mutate(
+    pstone_diff = pstone_p2 - pstone_p1
+  )
+
+t.test(exp2_pstones_diff$pstone_diff)
+
+
+
+
+```
+
+
+Exp. 1 within-subject t-test, pstones part 2 - pstones part 1 `r apa_print(t.test(exp1_pstones_diff$pstone_diff))$statistic`
+
+Exp. 2 within-subject t-test, pstones part 2 - pstones part 1 `r apa_print(t.test(exp2_pstones_diff$pstone_diff))$statistic`
+
+
+
+```{r estimate_means, fig.width = 8, fig.height = 3}
+
+library(patchwork) 
+
+
+exp2_chose_gems <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>% 
+  summarise(pgem = mean(chose_gems))
+
+exp2_estimate <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(pgem = first(number_correct_part1)/50)
+
+exp2_chose_gems_p2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(pgem = mean(chose_gems_p2))
+
+library(dplyr)
+library(ggplot2)
+library(ggtext) 
+
+
+combined <- bind_rows(
+  exp2_chose_gems %>% mutate(exp = "Part 1"),
+  exp2_chose_gems_p2 %>% mutate(exp = "Part 2"),
+  exp2_estimate %>% mutate(exp = "Part 1 Estimate")
+) %>%
+  mutate(exp = factor(exp, levels = c("Part 1", "Part 2", "Part 1 Estimate")))
+  
+
+summary_df <- combined %>%
+  group_by(exp) %>%
+  summarise(
+    mean_pgem = mean(pgem, na.rm = TRUE),
+    se_pgem   = sd(pgem, na.rm = TRUE) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  )
+
+
+
+asterisk_df_pstones <- summary_df %>%
+  mutate(
+    label = "***",
+    y = mean_pgem + se_pgem + 0.01
+  )
+
+
+
+
+exp2_estimate <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(pgem = first(number_correct_part1)/50)
+
+exp2_chose_gems <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(pgem = mean(chose_gems, na.rm = TRUE), .groups = "drop")
+
+exp2_chose_gems_p2 <- two_parts_df_exp2 %>%
+  group_by(subj_id) %>%
+  summarise(pgem = mean(chose_gems_p2, na.rm = TRUE), .groups = "drop")
+
+p1_vs_estimate <- exp2_estimate %>%
+  mutate(pgem_estimate = pgem) %>%
+  select(subj_id, pgem_estimate) %>%
+  inner_join(
+    exp2_chose_gems,
+    by = "subj_id"
+  )
+
+p2_vs_estimate <- exp2_estimate %>%
+  mutate(pgem_estimate = pgem) %>%
+  select(subj_id, pgem_estimate) %>%
+  inner_join(
+    exp2_chose_gems_p2,
+    by = "subj_id"
+  )
+
+p1_vs_p2 <- exp2_chose_gems_p2 %>%
+  mutate(pgem_p2 = pgem) %>%
+  select(subj_id, pgem_p2) %>%
+  inner_join(
+    exp2_chose_gems,
+    by = "subj_id"
+  )
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.001) return("***")
+  if (p < 0.01) return ("**")
+  if (p < 0.05) return ("*")
+  sprintf("p = %.2f", p)
+}
+
+p1_p2_ttest <- fmt_p(t.test(p1_vs_p2$pgem_p2, p1_vs_p2$pgem, paired = TRUE)$p.value)
+p1_estimate <- fmt_p(t.test(p1_vs_estimate$pgem_estimate, p1_vs_estimate$pgem, paired = TRUE)$p.value)
+p2_estimate <- fmt_p(t.test(p2_vs_estimate$pgem_estimate, p2_vs_estimate$pgem, paired = TRUE)$p.value)
+
+
+x_p1       <- which(levels(summary_df$exp) == "Part 1")
+x_p2       <- which(levels(summary_df$exp) == "Part 2")
+x_estimate <- which(levels(summary_df$exp) == "Part 1 Estimate")
+
+
+y_top <- max(summary_df$mean_pgem + summary_df$se_pgem, na.rm = TRUE)
+pad   <- diff(range(c(0.35, 0.45))) * 0.06
+y_p1_p2  <- 0.365   
+y_p1_est <- 0.4375  
+y_p2_est <- 0.355   
+
+cap_height <- 0.005
+line_w     <- 0.6
+text_pad   <- 0.006
+text_size  <- 5
+
+seg_df_pgem <- tibble::tibble(
+  x       = c(x_p1, x_p1,  x_p2),
+  xend    = c(x_p2, x_estimate, x_estimate),
+  y       = c(y_p1_p2, y_p1_est, y_p2_est),
+  label   = c(p1_p2_ttest, p1_estimate, p2_estimate),
+  cap_dir = c(1, -1, 1)
+)
+seg_up <- seg_df_pgem %>%
+  dplyr::filter(cap_dir == 1) %>%
+  dplyr::mutate(yend = y + cap_height)
+
+seg_down <- seg_df_pgem %>%
+  dplyr::filter(cap_dir == -1) %>%
+  dplyr::mutate(yend = y - cap_height)
+
+
+text_df_pgem <- seg_df_pgem %>%
+  dplyr::mutate(
+    x = (x + xend) / 2,
+    y = ifelse(cap_dir == -1, y + text_pad, y - text_pad),
+    fontface = ifelse(label %in% c("*", "**", "***"), "bold", "plain")
+  ) %>%
+  dplyr::select(x, y, label, fontface)
+
+pgem_estimate <- ggplot(summary_df, aes(x = exp, y = mean_pgem)) +
+  geom_errorbar(
+    aes(ymin = mean_pgem - se_pgem,
+        ymax = mean_pgem + se_pgem),
+    width = 0.12,
+    linewidth = 0.8
+  ) +
+  geom_point(
+    shape = 23, size = 3, fill = "black", color = "black"
+  ) +
+  scale_y_continuous(
+    limits = c(0.33, 0.45),
+    breaks = seq(0.1, 1.1, by = 0.1),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(x = "", y = "P(*gems*)") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_markdown(size = 12, hjust = 0.5),
+        legend.position = "none",
+        axis.title.y = element_markdown(size = 14),
+        axis.title.x = element_markdown(size = 14),
+        axis.text = element_text(size = 12))
+
+
+pgem_estimate <- pgem_estimate +
+  geom_segment(
+    data = seg_df_pgem,
+    mapping = aes(x = x, xend = xend, y = y, yend = y),
+    inherit.aes = FALSE,
+    color = "black",
+    linewidth = line_w,
+    lineend = "butt"
+  )
+
+if (nrow(seg_up) > 0) {
+  pgem_estimate <- pgem_estimate +
+    geom_segment(
+      data = seg_up,
+      mapping = aes(x = x, xend = x, y = y, yend = yend),
+      inherit.aes = FALSE,
+      color = "black",
+      linewidth = line_w
+    ) +
+    geom_segment(
+      data = seg_up,
+      mapping = aes(x = xend, xend = xend, y = y, yend = yend),
+      inherit.aes = FALSE,
+      color = "black",
+      linewidth = line_w
+    )
+}
+
+if (nrow(seg_down) > 0) {
+  pgem_estimate <- pgem_estimate +
+    geom_segment(
+      data = seg_down,
+      mapping = aes(x = x, xend = x, y = y, yend = yend),
+      inherit.aes = FALSE,
+      color = "black",
+      linewidth = line_w
+    ) +
+    geom_segment(
+      data = seg_down,
+      mapping = aes(x = xend, xend = xend, y = y, yend = yend),
+      inherit.aes = FALSE,
+      color = "black",
+      linewidth = line_w
+    )
+}
+
+pgem_estimate <- pgem_estimate +
+  geom_text(
+    data = text_df_pgem,
+    mapping = aes(x = x, y = y, label = label, fontface = fontface),
+    inherit.aes = FALSE,
+    size = text_size,
+    vjust = 0.5
+  )
+
+
+print(pgem_estimate)
+
+ggsave(
+  "pgem_estimate.png",
+  pgem_estimate,
+  width = 8,
+  height = 4,
+  dpi = 300
+)
+
+```
+
+Difference in means for part 1 p(gems) and part 2 p(gems): `r apa_print(t.test(p1_vs_p2$pgem_p2, p1_vs_p2$pgem, paired = TRUE))$statistic`
+
+Difference in means for part 1 p(gems) and part 1 p(gems) estimate: `r apa_print(t.test(p1_vs_estimate$pgem_estimate, p1_vs_estimate$pgem, paired = TRUE))$statistic`
+
+Difference in means for part 1 p(gems) estimate and part 2 p(gems): `r apa_print(t.test(p2_vs_estimate$pgem_estimate, p2_vs_estimate$pgem, paired = TRUE))$statistic`
+
+```{r conf_analysis, cache=F}
+
+correct_conf_summary <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, is_consistent) %>%
+  group_by(subj_id) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE)) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  ) 
+
+incorrect_conf_summary <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, !is_consistent) %>%
+  group_by(subj_id) %>%
+  summarise(mean_conf_subj = mean(confidence, na.rm = TRUE)) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  ) 
+
+
+gems_stones_conf <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, chose_gems, !is_consistent)%>%
+  group_by(subj_id) %>%
+  summarise(mean_conf_subj = mean(confidence)) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  )
+
+stones_gems_conf <- two_parts_df_exp2 %>% 
+  filter(!is_catch_trial, !chose_gems, chose_gems_p2) %>%
+  group_by(subj_id) %>%
+  summarise(mean_conf_subj = mean(confidence)) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  )
+
+stones_stones_conf <- two_parts_df_exp2 %>%
+  filter(!is_catch_trial, !chose_gems, !chose_gems_p2, !is_consistent) %>%
+  group_by(subj_id) %>%
+  summarise(mean_conf_subj = mean(confidence)) %>%
+  summarise(
+    mean_conf = mean(mean_conf_subj),
+    se_conf = sd(mean_conf_subj)/sqrt(n()),
+    n = n()
+  )
+
+
+
+```
+
+(all part 2 incorrect trials)
+gems -> stones mean confidence `r printnum(gems_stones_conf$mean_conf)`, SE = `r printnum(gems_stones_conf$se_conf)`
+
+stones -> gems mean confidence `r printnum(stones_gems_conf$mean_conf)`, SE = `r printnum(stones_gems_conf$se_conf)`
+
+stones -> stones mean confidence `r printnum(stones_stones_conf$mean_conf)`, SE = `r printnum(stones_stones_conf$se_conf)`
+
+# Results
+
+# Discussion
+
+
+\newpage
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::

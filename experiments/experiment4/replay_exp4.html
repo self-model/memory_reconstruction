@@ -424,7 +424,7 @@
                     }
 
                 function getBorderColor(is_correct) {
-                    if (is_correct) { return (trial.correct_choice_position === trial.rubyposition) ? colors.feedback_ruby : colors.feedback_emerald; }
+                    if (is_correct) { return colors.feedback_emerald}
                     return colors.feedback_incorrect;
                 }
                 function drawFeedbackText() {

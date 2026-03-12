@@ -27,7 +27,7 @@
     <div class="max-w-4xl mx-auto">
         <h1 class="text-3xl font-bold mb-4 text-slate-700">Memory Reconstruction Playback - 2 Gems</h1>
 
-        
+
 
         <div class="control-panel grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             <div>
@@ -78,7 +78,7 @@
     </div>
 
     <script>
-        
+
         const replaySelect = document.getElementById('replaySelect');
         replaySelect.addEventListener('change', (e) => {
             const val = e.target.value;
@@ -86,7 +86,7 @@
             // navigate to the chosen replay page (same folder)
             window.location.href = val;
         });
-        
+
         let experimentData = null;
         let sketchInstance = null;
         const dataFileSelect = document.getElementById('dataFileSelect');
@@ -239,6 +239,9 @@
                 const feedback_duration = 500;
                 const finished_duration = 2000;
 
+                let correctPositions = [];   // <- shared, accessible by drawBoxes() and drawFeedbackText()
+                const trialPhase = phase;
+
 
                 const colors = {
                     background: p.color(241, 245, 249), box_default: p.color(255),
@@ -268,6 +271,20 @@
                     p.frameRate(60);
                     setupStimuli();
                     startTime = p.millis();
+                    try {
+                        if (Array.isArray(trial.correct_choice_position)) {
+                            correctPositions = trial.correct_choice_position;
+                        } else if (typeof trial.correct_choice_position === 'string' && trial.correct_choice_position.trim().length) {
+                            correctPositions = JSON.parse(trial.correct_choice_position);
+                        } else if (trial.correct_choice_position == null) {
+                            correctPositions = [];
+                        } else {
+                            correctPositions = [trial.correct_choice_position];
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse correct_choice_position:', trial.correct_choice_position, e);
+                        correctPositions = [trial.correct_choice_position];
+                    }
                 };
 
                 function setupStimuli() {
@@ -286,6 +303,7 @@
                     elapsedTime = p.millis() - startTime;
                     p.background(colors.background);
 
+                    
                     if (state === 'waiting') {
                         if (phase === 'part1' && trial.rt && elapsedTime >= trial.rt) {
                             state = 'feedback';
@@ -366,74 +384,97 @@
                     p.pop();
                 }
 
-                function isBoxCorrectPosition(boxPosition, correctPositions) {
-                        if (Array.isArray(correctPositions)) {
-                            return correctPositions.includes(boxPosition);
+                function isBoxCorrectPosition(boxPosition, correctPositionsLocal) {
+  const cp = (typeof correctPositionsLocal !== 'undefined') ? correctPositionsLocal : correctPositions;
+  if (!cp) return false;
+  if (Array.isArray(cp)) return cp.includes(boxPosition);
+  return boxPosition === cp;
+}
+                function drawBoxes() {
+                    for (let i = 0; i < boxes.length; i++) {
+                        const box = boxes[i];
+                        const is_chosen_box = (box.position === trial.response_position);
+                        const is_correct = isBoxCorrectPosition(box.position, correctPositions);
+                        const is_part1_chosen_box = (box.position === trial.part1_response_position);
+
+                        p.push();
+                        p.strokeWeight(3);
+                        // default border color
+                        let border_color = colors.box_default;
+                        let show_content = false;
+
+                        // use the proper phase variable and state (lowercase)
+                        if (trialPhase === 'part1') {
+                            if (state === 'feedback' && is_chosen_box) {
+                                border_color = getBorderColor(is_correct);
+                                show_content = true;
+                            }
+                            if (state === 'finished') {
+                                border_color = getBorderColor(is_correct);
+                                show_content = true;
+                            }
                         } else {
-                            return boxPosition === correctPositions;
+                            if (trial.is_show_trial) {
+                                border_color = getBorderColor(is_correct);
+
+                                show_content = false;
+                            }
                         }
-                    }
-
-                 function drawBoxes() {
-                        for (let i = 0; i < boxes.length; i++) {
-                            const box = boxes[i];
-                            const is_chosen = (i === click_log.choice);
-
-                            const is_correct = isBoxCorrectPosition(box.position, trial.correct_choice_position);
 
 
-
-                            p.push();
+                        if (is_chosen_box) {
                             p.strokeWeight(3);
-                            let border_color = colors.box_default;
-                            let show_content = false;
-                            if (trial.phase === 'part1') {
-                                if (State === 'feedback' && is_chosen) {
-                                    border_color = getBorderColor(is_correct);
-                                    show_content = true;
-                                }
-                                if (State === 'finished') {
-                                    border_color = getBorderColor(is_correct);
-                                    show_content = true;
-                                }
-                            } else {
-                                if (trial.is_show_trial) {
-                                    border_color = getBorderColor(is_correct);
-                                    show_content = false;
-                                }
-                            }
-                            p.stroke(border_color);
-                            p.fill(colors.box_default);
-                            p.rect(box.x, box.y, box.w, box.h);
-                            p.noStroke();
-                            p.fill(colors.text);
-                            p.textAlign(p.CENTER, p.CENTER);
-                            p.textSize(24);
-                            p.textStyle(p.BOLD);
-                            const centerX = box.x + box.w / 2;
-                            const centerY = box.y + box.h / 2;
-                            p.text(box.word, centerX, centerY - 14);
-                            p.text(`(${box.number})`, centerX, centerY + 14);
-                            p.textStyle(p.NORMAL);
-                            if (show_content) {
-                                let img_to_draw = is_correct ? images.emerald : images.stone;
-                                drawBoxContent(box, img_to_draw);
-                            }
-                            p.pop();
+                        } else {
+                            p.strokeWeight(3);
                         }
+
+                        p.stroke(border_color);
+                        p.fill(colors.box_default);
+                        p.rect(box.x, box.y, box.w, box.h);
+                        p.noStroke();
+                        p.fill(colors.text);
+                        p.textAlign(p.CENTER, p.CENTER);
+
+                        if (phase === 'part2') {
+                            if (is_part1_chosen_box) {
+                                p.fill(colors.feedback_ruby);
+                            } else {
+                                p.fill(colors.text);
+                            }
+                        }
+
+                        p.textSize(24);
+                        p.textStyle(p.BOLD);
+                        const centerX = box.x + box.w / 2;
+                        const centerY = box.y + box.h / 2;
+                        p.text(box.word, centerX, centerY - 14);
+                        p.text(`(${box.number})`, centerX, centerY + 14);
+                        p.textStyle(p.NORMAL);
+                        if (show_content) {
+                            let img_to_draw = is_correct ? images.emerald : images.stone;
+                            drawBoxContent(box, img_to_draw);
+                        }
+                        p.pop();
                     }
+                }
 
                 function getBorderColor(is_correct) {
-                    if (is_correct) { return colors.feedback_emerald}
+                    if (is_correct) { return colors.feedback_emerald }
                     return colors.feedback_incorrect;
                 }
                 function drawFeedbackText() {
-                    const chosenBox = boxes.find(b => b.position === trial.response_position); if (!chosenBox) return;
-                    const is_correct = trial.response_position === trial.correct_choice_position;
+                    const chosenBox = boxes.find(b => b.position === trial.response_position);
+                    if (!chosenBox) return;
+                    const is_correct = isBoxCorrectPosition(trial.response_position, correctPositions);
                     let txt = is_correct ? `You earned ${chosenBox.number} gems!` : `Oh no, you got ${chosenBox.number} stones`;
                     let txt_color = getBorderColor(is_correct);
-                    p.push(); p.noStroke(); p.fill(txt_color); p.textSize(28); p.textAlign(p.CENTER, p.TOP);
-                    p.text(txt, p.width / 2, p.height / 3 - 40); p.pop();
+                    p.push();
+                    p.noStroke();
+                    p.fill(txt_color);
+                    p.textSize(28);
+                    p.textAlign(p.CENTER, p.TOP);
+                    p.text(txt, p.width / 2, p.height / 3 - 40);
+                    p.pop();
                 }
                 function drawBoxContent(box, img) {
                     if (!img || !img.width) return; const img_size = 48;
@@ -471,6 +512,7 @@
 
                 };
                 let top_y, bottom_y, scale_x;
+                
 
                 p.setup = function () {
                     const canvasHolder = document.getElementById('p5-canvas-holder');

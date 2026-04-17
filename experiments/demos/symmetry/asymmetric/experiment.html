@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Revealing squares</title>
+  <script src="../../../symmetry/jquery/jquery.min.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/jspsych.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-fullscreen.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-preload.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-instructions.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-survey-multi-choice.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-survey-html-form.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-findSquares.js"></script>
+  <script src="../../../symmetry/jspsych-6.1.0/plugins/jspsych-survey-text.js"></script>
+  <script src="../../../symmetry/p5/p5.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Corben&family=Quicksand&display=swap" rel="stylesheet">
+  <link href="../../../symmetry/style.css" rel="stylesheet" type="text/css">
+  </link>
+</head>
+
+<body></body>
+<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#1c1917;text-align:center;padding:6px 12px;font-size:0.875rem;font-weight:600;">
+  DEMO VERSION (Asymmetric condition) — data is not saved
+</div>
+<div style="height:32px;"></div>
+<script>
+
+  function makeTimeline() {
+
+    var gridCoors = new Array(12);
+    var alreadyClicked = new Array(12);
+
+
+    window.total_points = 0;
+    window.nrounds = 4;
+    window.first_instructions_num = 0;
+    window.condition = 'asymmetric';
+    console.log(window.condition)
+
+    // The first set of grids are symmetric, so they are used in the first round
+
+      gridCoors[0] = [
+      ['1', '0', '0', '0', '0', '1'],
+      ['1', '0', '0', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '1', '0', '0', '1', '1'],
+      ['1', '0', '0', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[0] = [
+      [1, 0],
+      [0, 5],
+      [3, 1],
+      [4, 5],
+    ];
+    gridCoors[1] = [
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '1', '0', '0', '1', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '0', '0', '0', '0', '1'],
+      ['1', '1', '0', '0', '1', '1'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[1] = [
+      [1, 1],
+      [1, 5],
+      [3, 5],
+      [4, 0]
+    ]
+    gridCoors[2] = [
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '1', '1', '0', '0'],
+      ['0', '0', '1', '1', '0', '0'],
+      ['1', '1', '0', '0', '1', '1'],
+      ['1', '0', '0', '0', '0', '1']
+    ]
+    alreadyClicked[2] = [
+      [2, 2],
+      [4, 1],
+      [4, 5]
+    ]
+    gridCoors[3] = [
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '1', '1', '0', '0'],
+      ['0', '0', '1', '1', '0', '0'],
+      ['0', '1', '0', '0', '1', '0'],
+      ['0', '1', '0', '0', '1', '0'],
+      ['0', '1', '0', '0', '1', '0']
+    ]
+    alreadyClicked[3] = [
+      [1, 2],
+      [4, 4],
+      [5, 1]
+    ]
+    gridCoors[4] = [
+      ['1', '1', '0', '0', '1', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '0', '0', '0', '0', '1'],
+      ['1', '1', '0', '0', '1', '1'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[4] = [
+      [0, 1],
+      [0, 5],
+      [4, 0],
+      [4, 4]
+    ]
+    gridCoors[5] = [
+      ['0', '1', '1', '1', '1', '0'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '1', '0', '0', '1', '1'],
+      ['1', '0', '0', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[5] = [
+      [0, 1],
+      [2, 0],
+      [3, 5]
+    ]
+    // The second set of grids are asymmetric, so they are not used in the first round
+
+    gridCoors[6] = [
+      ['0', '0', '0', '0', '0', '1'],
+      ['1', '1', '0', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '1', '1', '0', '1', '1'],
+      ['0', '0', '0', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[6] = [
+      [1, 0],
+      [0, 5],
+      [3, 1],
+      [4, 5],
+    ];
+    gridCoors[7] = [
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '1', '0', '0', '1', '1'],
+      ['0', '1', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '0', '1'],
+      ['1', '1', '1', '0', '1', '1'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[7] = [
+      [1, 1],
+      [1, 5],
+      [3, 5],
+      [4, 0]
+    ]
+    gridCoors[8] = [
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '1', '1', '1', '0', '0'],
+      ['0', '0', '1', '0', '0', '1'],
+      ['1', '1', '0', '0', '0', '1'],
+      ['1', '0', '0', '0', '0', '1']
+    ]
+    alreadyClicked[8] = [
+      [2, 2],
+      [4, 1],
+      [4, 5]
+    ]
+    gridCoors[9] = [
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '1', '1', '0', '0'],
+      ['0', '0', '1', '0', '0', '0'],
+      ['0', '1', '0', '0', '1', '0'],
+      ['0', '1', '0', '0', '1', '1'],
+      ['0', '1', '0', '0', '1', '0']
+    ]
+    alreadyClicked[9] = [
+      [1, 2],
+      [4, 4],
+      [5, 1]
+    ]
+    gridCoors[10] = [
+      ['1', '1', '1', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '1', '0'],
+      ['1', '1', '0', '1', '1', '0'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[10] = [
+      [0, 1],
+      [0, 5],
+      [4, 0],
+      [4, 4]
+    ]
+    gridCoors[11] = [
+      ['0', '1', '1', '1', '1', '0'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['1', '1', '0', '0', '0', '0'],
+      ['1', '0', '0', '1', '1', '1'],
+      ['0', '0', '0', '0', '0', '0'],
+      ['0', '0', '0', '0', '0', '0']
+    ]
+    alreadyClicked[11] = [
+      [0, 1],
+      [2, 0],
+      [3, 5]
+    ]
+
+    timeline = [];
+
+
+    timeline.push({
+      type: 'fullscreen',
+      fullscreen_mode: true
+    });
+
+
+    var first_instructions = {
+      type: 'instructions',
+      show_clickable_nav: true,
+
+      pages: () => {
+
+        var bonuses = window.bonuses;
+        // Sort them in descending order
+        var sortable = [];
+        for (var subj in bonuses) {
+
+          if (bonuses[subj].nickname) {
+
+            bonus = Number(bonuses[subj].bonus) || 0;
+            if (isNaN(bonus)) {
+              bonus = 0;
+            }
+
+            sortable.push([bonuses[subj].nickname, bonus])
+          }
+        }
+        // console.log(sortable)
+        sortable.sort(function (a, b) { return b[1] - a[1] });
+        sortable = sortable.slice(0, 10);
+        var rows = '';
+        $.each(sortable, function (key, item) {
+          var position = key + 1
+          var row = '<tr>';
+          row += '<td>' + position + '</td>'; // serial position
+          row += '<td>' + item[0] + '</td>'; // participant name
+          row += '<td>' + item[1] + '</td>'; // bonus
+          rows += row + '<tr>';
+        });
+
+
+        var instruction_pages = [
+          `<h1>Welcome, ${window.nickname} :)</h1>
+
+                <p>This puzzle game comprises 4 rounds in which you can earn points, and one special bonus round at the end. <p>
+
+                If the number of points you have at the end of the game is within the top 30% of all players, you will get a 1$ bonus.</p>
+
+               <p>We're sorry, this game <b>cannot</b> be played on an ipad or smart phone.</p>
+
+               (We can tell if you used an ipad from your data and unfortunately we won't be able to pay you.)
+        `]
+
+        instruction_pages.push(`<p>
+              In this puzzle you will be shown a board of cards. <p>
+              Some cards are white and some are black.<p>
+              Initially, they will be covered in yellow. <p>
+              <div align='center'><img src="../../../symmetry/assets/instr_o.png" width="400"></div></br>`);
+
+        instruction_pages.push(`<p>
+              Each board has 10 black cards. <p>
+              Your task is to click on yellow cards to reveal all hidden black cards, touching <b>as few white cards</b> as you can. <p>
+              <div align='center'><img src="../../../symmetry/assets/instr_g.png" width="400" ></div></br>`);
+
+
+        instruction_pages.push(`<p>
+              You can earn up to 27 points per round, but careful: you lose 1 point for every white card you uncover. <p>
+              <div align='center'><img src="../../../symmetry/assets/instr_o.png" width="400"></div></br>`);
+
+
+        if (Object.keys(window.bonuses).length > 10) {
+          instruction_pages.push(
+            `<p>Here are the points that our best participants earned across the four rounds of the game:</p>
+                  <table id="scores">
+                      <thead>
+                          <tr>
+                              <th id="corner"></th>
+                              <th>Participant</th>
+                              <th>Points</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                      ${rows}
+                      </tbody
+                      <tr>
+                          <td colspan="3" style="text-align:center"></td>
+                      </tr>
+                      </tbody>
+                  </table>
+                  <br />
+                  </body>`);
+        }
+        return instruction_pages;
+      }
+    }
+
+
+
+    // timeline.push(special_game)
+    timeline.push(first_instructions)
+
+
+    var multichoice_part1 = {
+      type: 'survey-multi-choice',
+      show_clickable_nav: true,
+      questions: [
+        {
+          prompt: `The goal of the game is to ...`,
+          options: [
+            `... go <b>really fast</b> and finish the game as quick as possible`,
+            '... <b>avoid</b> all the black cards',
+            '... find all black cards whilst revealing as <b>few white cards</b> as possible',
+            '... only click on cards in the corners'], required: true
+        }
+      ],
+      on_finish: (data) => {
+        data.correct = JSON.parse(data.responses).Q0.includes('<b>few white cards</b>'),
+          data.test_part = 'multichoice_part1',
+          window.comprehend_np = data.correct;
+        window.np_instructions_num = (window.np_instructions_num || 0) + 1;
+      }
+    }
+    timeline.push(multichoice_part1)
+
+
+    timeline.push({
+      timeline: [
+        {
+          type: 'instructions',
+          show_clickable_nav: true,
+          pages: [
+            `<p>Let's try that again. Here's a quick reminder:</p>
+         <p>Your goal is to find all the <b>black</b> cards while uncovering as <b>few white</b> cards as possible.</p>
+         <p>Each board has 10 black cards. You lose 1 point for every white card you reveal.</p>`
+          ]
+        },
+        multichoice_part1
+      ],
+      conditional_function: function () {
+        return !window.comprehend_np && window.np_instructions_num < 2;
+      }
+    }
+    )
+
+    var inner_timeline = [];
+
+    var practice_np = {
+      type: "findSquares",
+      cheat: false,
+      boost: false,
+      grid: [
+        ['0', '0', '0', '0'],
+        ['1', '1', '1', '1'],
+        ['1', '1', '1', '1'],
+        ['0', '0', '0', '0']
+      ],
+      already_clicked: [
+        [2, 2]
+      ],
+      text: `Find 8 hidden black cards to practise. One is already revealed!`,
+      textSize: 15
+    };
+
+    inner_timeline.push({
+      type: 'instructions',
+      show_clickable_nav: true,
+      pages: [
+        `<p>Good! Let's practice.</p>
+         <p>The points that you will earn in this practice round will not count towards your final score.</p>`
+      ]
+    }
+    )
+
+    inner_timeline.push(practice_np)
+
+    inner_timeline.push({
+      type: 'instructions',
+      pages: function () {
+        return [
+          `<p>You revealed all black squares while touching only ${8-window.round_points} white squares out of 8, so your point count in this practice round is <strong>${window.round_points}</strong>.</p>`
+        ];
+      },
+      show_clickable_nav: true
+    });
+
+    inner_timeline.push({ // first round of genuine games
+      type: 'instructions',
+      show_clickable_nav: true,
+      pages: () => {
+
+        window.total_points = 0;
+        window.round_num = 0;
+
+        instruction_pages = [];
+
+        instruction_pages.push([`<p> In the real game, black cards will be grouped. <p>
+
+        <p> Each group has <b>at least 2 cards and maximally 4 cards.</b> Corners of the groups might touch. <p>
+
+        To make things easier, <b>we start each round with one black card from each group already revealed</b>.
+
+        <p> This way, you don't need to search for new groups, you just to reveal their size and shape.<p>
+
+        <div align='center'><img src="../../../symmetry/assets/instr_group.png" width="400" ></div></br>`]);
+
+        instruction_pages.push([`<p>You'll now play ${window.nrounds} real rounds, where the points you earn will count toward your bonus.<p>
+          <p>Ready? Let's go!<p>`]);
+
+        return instruction_pages;
+      }
+    }
+    )
+
+
+    var game = { // used for both genuine and pretend games
+      type: "findSquares",
+      cheat: jsPsych.timelineVariable('cheat'),
+      grid: jsPsych.timelineVariable('grid'),
+      already_clicked: jsPsych.timelineVariable('already_clicked'),
+      data: jsPsych.timelineVariable('data'),
+      on_finish: jsPsych.timelineVariable('on_finish')
+    };
+
+    grid_order = [1].concat(jsPsych.randomization.shuffle([2,3,4]));
+
+    if (window.condition=='asymmetric') {
+      grid_order[1] += 6 // make sure the second grid is asymmetric
+      grid_order[2] += 6 // make sure the third grid is asymmetric
+      grid_order[3] += 6 // make sure the fourth grid is asymmetric
+    }
+
+    game_vars = grid_order.map(function (i) {
+
+      vars = {
+        cheat: false,
+        grid: gridCoors[i],
+        data: {
+          grid_number: i,
+          test_part: 'non-pretend'
+        },
+        already_clicked: alreadyClicked[i],
+        on_finish: (data) => { window.total_points += data.round_points; window.round_num++ }
+      };
+      return vars
+    });
+
+    window.first_grid_number = game_vars[0].data.grid_number;
+
+    var feedback = {
+      type: 'instructions',
+      pages: function () {
+        return [
+          `<p>You left <strong>${window.round_points}</strong> white squared untouched and so earned <strong>${window.round_points}</strong> points in this round.</p>
+       <p>Your total is now <strong>${window.total_points}</strong> points.</p>
+       <p>This was round ${window.round_num} out of ${window.nrounds}.</p>`
+        ];
+      },
+      show_clickable_nav: true
+    };
+
+    var games = {
+      timeline: [game, feedback],
+      timeline_variables: game_vars,
+      repetitions: 1
+    }
+
+    inner_timeline.push(games)
+
+    inner_timeline.push({
+      type: 'instructions',
+      show_clickable_nav: true,
+      pages: ()=> { return [
+        `<p>Great! You finished all ${window.nrounds} rounds of the game.</p>
+         <p>Your total score is <strong>${window.total_points}</strong> points.</p>
+         <p>Now, we will give you a chance to earn an additional bonus.</p>`
+      ]}
+    });
+
+    var instructions_reconstruction = {
+      type: 'instructions',
+      show_clickable_nav: true,
+      pages: function () {
+        const firstPage = (window.reconstruction_attempts || 0) > 0
+          ? `<h1>Let's go over that again</h1>
+         <p>It looks like you didn't fully follow the instructions the first time. Please read carefully — this round is special and worth an extra $2.</p>`
+          : `<h1>A very special bonus round</h1>
+         <p>This next round is different, so pay close attention. Players who perform well here will be paid an additional $2.</p>`;
+
+        return [
+          firstPage,
+          `<p>In the special bonus round, we will let you play round number 1 <i>again</i>, with exactly the same board that you played before:
+        <div align="center">
+          <img src="../../../symmetry/assets/board${window.first_grid_number}.png" width="200">
+        </div>`,
+          `<p>But pay close attention, this time your goal is different!</p>`,
+          `<p>In the special bonus round, the number of points you earn doesn't matter. All that matters is that you <i>make the same guesses you made in round number 1, in the same order</i>.</p>
+       <p>If you succeed, you will get an additional $2 in bonus.</p>
+       <p>If you get close enough, even if not perfect, you will get $1 in bonus.`
+        ];
+      }
+    }
+
+
+    var multichoice_reconstruction = {
+      type: 'survey-multi-choice',
+      show_clickable_nav: true,
+      questions: [
+        {
+          prompt: `In the special bonus round, my goal is to ...`,
+          options: [
+            `... <b>repeat</b> my clicks from the first round, in the same order`,
+            '... <b>avoid</b> all the black cards',
+            '... find all black cards whilst revealing as <b>few white</b> cards as possible',
+            '... only click on cards in the corners'
+          ],
+          required: true
+        }
+      ],
+      on_finish: (data) => {
+        data.correct = JSON.parse(data.responses).Q0.includes('<b>repeat</b>');
+        data.test_part = 'multichoice_reconstruction';
+        window.comprehend_reconstruction = data.correct;
+        window.reconstruction_attempts = (window.reconstruction_attempts || 0) + 1;
+      }
+    };
+
+    var comprehension_loop = {
+      timeline: [instructions_reconstruction, multichoice_reconstruction],
+      loop_function: () => {
+        return !window.comprehend_reconstruction && window.reconstruction_attempts < 2;
+      }
+    };
+
+    inner_timeline.push(comprehension_loop);
+
+  //   var white_card_report = {
+  //     type: 'survey-html-form',
+  //     preamble: `<p>First, a question:</p>
+  //     <p>How many <strong>white</strong> cards did you touch in <strong>Round 1</strong>?</p>`,
+  //     html: `
+  //     <div style="font-size: 22px;">
+  //   <label for="white_count">Select a number:</label>
+  //   <select name="white_count" id="white_count" required style="font-size: 20px;">
+  //     ${[...Array(21).keys()].map(i => `<option value="${i}">${i}</option>`).join('')}
+  //   </select>
+  //     </div>
+  //   <br><br>
+  // `,
+  //     button_label: "Continue",
+  //     on_finish: function (data) {
+  //       var response = JSON.parse(data.responses);
+  //       data.white_cards_reported = parseInt(response.white_count);
+  //       window.white_cards_reported = data.white_cards_reported;
+  //       data.test_part = "white_card_report";
+  //     }
+  //   };
+
+  //   inner_timeline.push(white_card_report);
+
+    var reminder_board_content = {
+      type: 'instructions',
+      show_clickable_nav: true,
+      pages: () => {
+        return [`<p>This was the hidden content of the board in the first round:</p>
+       <div align="center">
+        <img src="../../../symmetry/assets/board${window.first_grid_number}.png" width="200"></div>
+        <p>Can you repeat the same sequence of guesses that you made in the first round? Let's try.</p>
+        <p>Remember, the number of points doesn't matter, only your ability to repeat your guesses from part 1.</p>`]
+      }
+    };
+
+    inner_timeline.push(reminder_board_content)
+
+    var special_game = { // used for both genuine and pretend games
+      type: "findSquares",
+      cheat: false,
+      grid: gridCoors[window.first_grid_number],
+      already_clicked: alreadyClicked[window.first_grid_number],
+      data: {
+        grid_number: window.first_grid_number,
+        test_part: 'memory'
+      }
+    };
+    inner_timeline.push(special_game)
+
+    var estimate = {
+      type: 'survey-multi-choice',
+      show_clickable_nav: true,
+      questions: [
+        {
+          prompt: `Relative to the number of <b>white cards</b> that I touched in the first round of part 1, in the special bonus round I think I touched...`,
+          options: [
+            `... <b>fewer</b> white cards`,
+            '... <b>more</b> white cards',
+            '... <b>the same number of</b> white cards'
+          ],
+          required: true
+        }
+      ],
+      on_finish: (data) => {
+        data.test_part = 'estimate';
+      }
+    };
+
+    inner_timeline.push(estimate)
+
+    var worker_comments = {
+      type: 'survey-text',
+      preamble: '<h1>Thank you!<h1>',
+      questions: [{
+        prompt: `<p>We will calculate your bonus and pay you as soon as possible. In the meantime, do you have any comments for us? What did you think of the experiment? What can we do better?</p>`,
+        pleaceholder: "your comments here",
+        rows: 4,
+        columns: 80,
+        name: 'worker_comments'
+      }]
+    };
+    inner_timeline.push(worker_comments);
+
+    inner_timeline.push({
+      type: 'instructions',
+      show_clickable_nav: true,
+      pages: () => {
+        return [
+          `<p>${window.nickname}, Your current number of points is
+       ${window.total_points}. We will know how many points you got for the special bonus round
+       when we compare it to your first round. We will update your bonus on the system then.
+       In the meantime, thank you for your participation! Please do not close
+       this window until you are sent back to Prolific.</p>`]
+      }
+    })
+
+
+    timeline.push({
+      timeline: inner_timeline,
+      conditional_function: function () {
+        return window.comprehend_np;
+      }
+    });
+
+    timeline.push({
+      timeline: [{
+        type: 'instructions',
+        show_clickable_nav: true,
+        pages: [
+          `<p>You failed our attention check twice, so you will now be redirected back to Prolific. Thank you for your time!</p>`]
+      }],
+      conditional_function: function () {
+        return !window.comprehend_np;
+      }
+    });
+    return timeline
+  };
+
+  function hexToBytes(hex) {
+    for (var bytes = [], c = 0; c < hex.length; c += 2)
+      bytes.push(parseInt(hex.substr(c, 2), 16));
+    return bytes;
+  }
+
+
+  $(window).resize(function () {
+    this.innerWidth = window.innerWidth;
+    this.innerHeight = window.innerHeight;
+    this.width = window.width;
+    this.height = window.height;
+  })
+
+  window.addEventListener('load', function () {
+    window.participant_number = 11;
+    window.nickname = 'Demo Player';
+
+    window.bonuses = {
+      '1': { nickname: 'Player Alpha', bonus: 95 },
+      '2': { nickname: 'Player Beta', bonus: 88 },
+      '3': { nickname: 'Player Gamma', bonus: 81 },
+      '4': { nickname: 'Player Delta', bonus: 76 },
+      '5': { nickname: 'Player Epsilon', bonus: 72 },
+      '6': { nickname: 'Player Zeta', bonus: 68 },
+      '7': { nickname: 'Player Eta', bonus: 63 },
+      '8': { nickname: 'Player Theta', bonus: 59 },
+      '9': { nickname: 'Player Iota', bonus: 54 },
+      '10': { nickname: 'Player Kappa', bonus: 50 },
+      '11': { nickname: 'Player Lambda', bonus: 45 }
+    };
+
+    timeline = makeTimeline();
+    jsPsych.init({
+      timeline: timeline,
+      on_finish: function () {
+        jsPsych.data.addProperties({
+          participant_number: window.participant_number,
+          reconstruction_instructions: window.reconstruction_attempts,
+          comprehend_reconstruction: window.comprehend_reconstruction,
+          nonpretend_instructions: window.np_instructions_num,
+          comprehend_np: window.comprehend_np,
+          nickname: window.nickname,
+          bonus: window.total_points,
+          condition: window.condition
+        });
+        var resultJson = jsPsych.data.get().json();
+        const blob = new Blob([resultJson], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'demo_results_symmetry_asymmetric.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    });
+  });
+
+</script>
+
+</html>
+
+<!--
+{
+  "protocol_sum": "changeToTheHashOfTheProtocolFolder",
+ "participant_number":0,
+  "bonuses":{}
+} -->

@@ -1,0 +1,590 @@
+---
+title: "Memory Reconstruction: Experiments 1 & 2"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+```{r global_options, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(fig.width=4, fig.height=3, fig.crop=F,
+                      fig.pos="tb", fig.path='figs/',
+                      echo=F, warning=F, cache=T,
+                      message=F, sanitize=T)
+```
+
+```{r setup, include=FALSE, cache=FALSE}
+library(papaja)
+library(tidyverse)
+library(broom)
+library(lme4)
+library(patchwork)
+library(stringr)
+library(effsize)
+
+r_refs("r-references.bib")
+```
+
+```{r loadformat, include = FALSE, cache=F}
+
+two_parts_df_exp1 <- read.csv("../data/experiment1/two_parts_df_exp1.csv")
+
+exp1_ids <- unique(two_parts_df_exp1$subj_id)
+
+two_parts_df_exp2 <- read.csv("../data/experiment2/two_parts_df_exp2.csv") %>%
+  filter(!subj_id %in% exp1_ids)
+
+
+p1_colour <- '#69b3a2'
+p2_colour <- '#404080'
+
+combined_df <- bind_rows(
+  two_parts_df_exp1 %>% mutate(experiment = 1),
+  two_parts_df_exp2 %>% mutate(experiment = 2)
+) %>%
+  mutate(experiment = factor(experiment))
+
+```
+
+```{r correlations_between_learning_and_memory, include=FALSE, cache=FALSE}
+subj_summary <- combined_df %>%
+  filter(!is_catch_trial) %>%
+  group_by(subj_id, experiment, mentioned_rule) %>%
+  summarise(
+    pstones               = mean(chose_onlystones, na.rm = TRUE),
+    memory_acc            = mean(is_consistent, na.rm = TRUE),
+    memory_acc_stones     = mean(is_consistent[chose_onlystones == TRUE],  na.rm = TRUE),
+    memory_acc_not_stones = mean(is_consistent[chose_onlystones == FALSE], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+e1 <- subj_summary %>% filter(experiment == 1)
+e2 <- subj_summary %>% filter(experiment == 2)
+
+# Correlations: pstones vs memory accuracy
+e1_cor_all        <- cor.test(e1$pstones, e1$memory_acc)
+e1_cor_stones     <- cor.test(e1$pstones, e1$memory_acc_stones)
+e1_cor_not_stones <- cor.test(e1$pstones, e1$memory_acc_not_stones)
+
+e2_cor_all        <- cor.test(e2$pstones, e2$memory_acc)
+e2_cor_stones     <- cor.test(e2$pstones, e2$memory_acc_stones)
+e2_cor_not_stones <- cor.test(e2$pstones, e2$memory_acc_not_stones)
+
+# Correlations: pstones vs memory accuracy (combined)
+combined_cor_all        <- cor.test(subj_summary$pstones, subj_summary$memory_acc)
+combined_cor_stones     <- cor.test(subj_summary$pstones, subj_summary$memory_acc_stones)
+combined_cor_not_stones <- cor.test(subj_summary$pstones, subj_summary$memory_acc_not_stones)
+
+# Group differences: explicit (TRUE) minus implicit (FALSE)
+# positive t = explicit learners have higher accuracy (expected direction)
+# negative t = implicit learners have higher accuracy (unexpected direction)
+e1_ttest_all        <- t.test(e1 %>% filter( mentioned_rule) %>% pull(memory_acc),
+                               e1 %>% filter(!mentioned_rule) %>% pull(memory_acc))
+e1_ttest_stones     <- t.test(e1 %>% filter( mentioned_rule) %>% pull(memory_acc_stones),
+                               e1 %>% filter(!mentioned_rule) %>% pull(memory_acc_stones))
+e1_ttest_not_stones <- t.test(e1 %>% filter( mentioned_rule) %>% pull(memory_acc_not_stones),
+                               e1 %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones))
+
+e2_ttest_all        <- t.test(e2 %>% filter( mentioned_rule) %>% pull(memory_acc),
+                               e2 %>% filter(!mentioned_rule) %>% pull(memory_acc))
+e2_ttest_stones     <- t.test(e2 %>% filter( mentioned_rule) %>% pull(memory_acc_stones),
+                               e2 %>% filter(!mentioned_rule) %>% pull(memory_acc_stones))
+e2_ttest_not_stones <- t.test(e2 %>% filter( mentioned_rule) %>% pull(memory_acc_not_stones),
+                               e2 %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones))
+
+combined_ttest_all        <- t.test(subj_summary %>% filter( mentioned_rule) %>% pull(memory_acc),
+                                     subj_summary %>% filter(!mentioned_rule) %>% pull(memory_acc))
+combined_ttest_stones     <- t.test(subj_summary %>% filter( mentioned_rule) %>% pull(memory_acc_stones),
+                                     subj_summary %>% filter(!mentioned_rule) %>% pull(memory_acc_stones))
+combined_ttest_not_stones <- t.test(subj_summary %>% filter( mentioned_rule) %>% pull(memory_acc_not_stones),
+                                     subj_summary %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones))
+```
+
+## Correlation between avoidance learning and memory accuracy
+
+### All trials
+
+Across both experiments, we tested whether participants who more strongly avoided the stones-only position in Part 1 (higher `pstones` avoidance, i.e. lower values) showed better reconstruction accuracy in Part 2.
+
+In Experiment 1, the correlation between `pstones` and overall memory accuracy was `r apa_print(e1_cor_all)$statistic`. In Experiment 2, it was `r apa_print(e2_cor_all)$statistic`. Across both experiments combined, `r apa_print(combined_cor_all)$statistic`.
+
+### Trials on which participants chose the stones-only position
+
+In Experiment 1, the correlation between `pstones` and memory accuracy on stones-only trials was `r apa_print(e1_cor_stones)$statistic`. In Experiment 2, it was `r apa_print(e2_cor_stones)$statistic`. Across both experiments combined, `r apa_print(combined_cor_stones)$statistic`.
+
+### Trials on which participants chose one of the other two positions
+
+In Experiment 1, the correlation between `pstones` and memory accuracy on non-stones trials was `r apa_print(e1_cor_not_stones)$statistic`. In Experiment 2, it was `r apa_print(e2_cor_not_stones)$statistic`. Across both experiments combined, `r apa_print(combined_cor_not_stones)$statistic`.
+
+## Difference in memory accuracy between explicit and implicit learners
+
+### All trials
+
+In Experiment 1, memory accuracy was `r e1 %>% filter(mentioned_rule) %>% pull(memory_acc) %>% mean() %>% printnum()` for explicit learners and `r e1 %>% filter(!mentioned_rule) %>% pull(memory_acc) %>% mean() %>% printnum()` for implicit learners (`r apa_print(e1_ttest_all)$statistic`). In Experiment 2, these figures were `r e2 %>% filter(mentioned_rule) %>% pull(memory_acc) %>% mean() %>% printnum()` and `r e2 %>% filter(!mentioned_rule) %>% pull(memory_acc) %>% mean() %>% printnum()` (`r apa_print(e2_ttest_all)$statistic`). Across both experiments combined, `r apa_print(combined_ttest_all)$statistic`.
+
+### Trials on which participants chose the stones-only position
+
+Explicit learners showed *lower* memory accuracy on stones-only trials than implicit learners. In Experiment 1, memory accuracy was `r e1 %>% filter(mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()` for explicit learners and `r e1 %>% filter(!mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()` for implicit learners (`r apa_print(e1_ttest_stones)$statistic`). In Experiment 2, these figures were `r e2 %>% filter(mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()` and `r e2 %>% filter(!mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()` (`r apa_print(e2_ttest_stones)$statistic`). Combined: `r apa_print(combined_ttest_stones)$statistic`.
+
+### Trials on which participants chose one of the other two positions
+
+In Experiment 1, memory accuracy was `r e1 %>% filter(mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()` for explicit learners and `r e1 %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()` for implicit learners (`r apa_print(e1_ttest_not_stones)$statistic`). In Experiment 2, these figures were `r e2 %>% filter(mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()` and `r e2 %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()` (`r apa_print(e2_ttest_not_stones)$statistic`). Combined: `r apa_print(combined_ttest_not_stones)$statistic`.
+
+```{r figure, fig.width=5, fig.height=3.33, cache=FALSE}
+
+exp_shapes <- c("1" = 21, "2" = 22)   # circle, square (fillable)
+rule_fills <- c("No" = "white", "Yes" = "black")
+
+scatter_data <- subj_summary %>%
+  filter(!is.na(memory_acc_stones)) %>%
+  mutate(rule_label = ifelse(mentioned_rule, "Yes", "No"),
+         experiment = as.character(experiment))
+
+# Format combined correlation for annotation
+cor_r     <- round(combined_cor_stones$estimate, 2)
+cor_p_txt <- if (combined_cor_stones$p.value < .001) "< .001" else
+               paste0("= ", round(combined_cor_stones$p.value, 3))
+cor_annotation <- paste0("r = ", cor_r, ", p ", cor_p_txt)
+
+# Left panel: scatter, one regression line with CI, stats at lower right
+p_scatter <- ggplot(scatter_data,
+                    aes(x = pstones, y = memory_acc_stones)) +
+  geom_point(aes(shape = experiment, fill = rule_label),
+             color = "black", alpha = 0.3, size = 2.8) +
+  geom_smooth(method = "lm", se = TRUE, color = "black",
+              fill = "grey70", linewidth = 0.8) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", linewidth = 0.4) +
+  annotate("text", x = Inf, y = 0.03, label = cor_annotation,
+           hjust = 1.05, size = 3.5) +
+  scale_shape_manual(values = exp_shapes,
+                     labels = c("1" = "Exp. 1", "2" = "Exp. 2"),
+                     name = NULL) +
+  scale_fill_manual(values = rule_fills, guide = "none") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  labs(x = expression("P("*italic("stones only")*") in Part 1"),
+       y = expression("Memory accuracy ("*italic("stones only")*")")) +
+  theme_minimal() +
+  theme(aspect.ratio = 1,
+        legend.position = "none",
+        plot.margin = margin(2, 4, 2, 2))
+
+# Right panel: means ± SE by mentioned_rule × experiment
+right_summary <- subj_summary %>%
+  filter(!is.na(memory_acc_stones)) %>%
+  mutate(rule_label = factor(ifelse(mentioned_rule, "Yes", "No"), levels = c("Yes", "No")),
+         experiment = as.character(experiment)) %>%
+  group_by(rule_label, mentioned_rule, experiment) %>%
+  summarise(
+    m  = mean(memory_acc_stones),
+    se = sd(memory_acc_stones) / sqrt(n()),
+    .groups = "drop"
+  )
+
+p_means <- ggplot(right_summary,
+                  aes(x = rule_label, y = m,
+                      shape = experiment, fill = rule_label,
+                      group = interaction(rule_label, experiment))) +
+  geom_point(color = "black", alpha = 0.8, size = 3,
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = m - se, ymax = m + se),
+                color = "black", width = 0.12,
+                position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", linewidth = 0.4) +
+  annotate("text", x = Inf, y = 1/3, label = "chance (1/3)",
+           hjust = 1.05, vjust = -0.4, size = 2.8) +
+  scale_shape_manual(values = exp_shapes,
+                     labels = c("1" = "Exp. 1", "2" = "Exp. 2"),
+                     name = NULL) +
+  scale_fill_manual(values = rule_fills, guide = "none") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  labs(x = "Mentioned rule",
+       y = expression("Memory accuracy ("*italic("stones only")*")")) +
+  theme_minimal() +
+  theme(axis.ticks = element_line(color = "grey50"),
+        legend.position = "none",
+        plot.margin = margin(2, 2, 2, 4))
+
+fig <- p_scatter + p_means + plot_layout(widths = c(2, 1))
+
+ggsave("figs/fig_learning_memory.png", fig,
+       width = 5, height = 3.33, dpi = 600, units = "in")
+
+ggsave("figs/fig_scatter.png", p_scatter,
+       width = 3.33, height = 3.33, dpi = 300, units = "in")
+
+ggsave("figs/fig_means.png", p_means,
+       width = 2.5, height = 3.33, dpi = 300, units = "in")
+
+fig
+```
+
+```{r learning_curves, fig.width=5, fig.height=5, cache=FALSE}
+
+pd        <- position_dodge(width = 0.2)
+phase_pal <- c("part1" = p1_colour, "part2" = p2_colour)
+
+make_bins <- function(max_trial, bin_width = 5) {
+  breaks <- seq(0.5, max_trial + 0.5, by = bin_width)
+  starts <- seq(1, max_trial, by = bin_width)
+  ends   <- pmin(starts + bin_width - 1, max_trial)
+  list(breaks = breaks, labels = paste0(starts, "–", ends))
+}
+
+make_phase_plot <- function(df, max_trial, subtitle = NULL, bin_width = 5,
+                           show_chance_label = FALSE) {
+  bins       <- make_bins(max_trial, bin_width)
+  bin_labels <- bins$labels
+
+  df_long <- df %>%
+    pivot_longer(
+      cols      = c(chose_onlystones, chose_onlystones_p2),
+      names_to  = "phase_raw",
+      values_to = "chose_onlystones"
+    ) %>%
+    mutate(
+      phase = factor(
+        case_when(phase_raw == "chose_onlystones"    ~ "part1",
+                  phase_raw == "chose_onlystones_p2" ~ "part2"),
+        levels = c("part1", "part2")
+      ),
+      bin = factor(
+        cut(trial_num, breaks = bins$breaks, labels = bin_labels,
+            include.lowest = TRUE, right = TRUE),
+        levels = bin_labels
+      )
+    ) %>%
+    filter(!is.na(phase))
+
+  group_summary <- df_long %>%
+    group_by(subj_id, phase, bin) %>%
+    summarise(bias = mean(chose_onlystones, na.rm = TRUE), .groups = "drop") %>%
+    group_by(phase, bin) %>%
+    summarise(
+      m  = mean(bias, na.rm = TRUE),
+      se = sd(bias,  na.rm = TRUE) / sqrt(n()),
+      .groups = "drop"
+    )
+
+  ggplot(group_summary,
+         aes(x = bin, y = m, color = phase, shape = phase, group = phase)) +
+    geom_hline(yintercept = 1/3, linewidth = 0.3, linetype = "dashed") +
+    { if (show_chance_label)
+        annotate("text", x = Inf, y = 1/3, label = "chance",
+                 hjust = 1.05, vjust = -0.4, size = 2.8) } +
+    geom_line(linewidth = 0.7, position = pd) +
+    geom_point(size = 2, position = pd) +
+    geom_errorbar(aes(ymin = m - se, ymax = m + se),
+                  width = 0.2, position = pd, linetype = "solid") +
+    scale_color_manual(
+      values = phase_pal, name = NULL,
+      labels = c("part1" = "Collect the gems!", "part2" = "Repeat your guesses!")
+    ) +
+    scale_shape_discrete(
+      name = NULL,
+      labels = c("part1" = "Collect the gems!", "part2" = "Repeat your guesses!")
+    ) +
+    scale_y_continuous(limits = c(0.17, 0.35), breaks = seq(0.2, 0.35, 0.05)) +
+    labs(x = "Trial bin",
+         y = expression("P("*italic("stones only")*")"),
+         subtitle = subtitle) +
+    theme_minimal(base_size = 11) +
+    theme(
+      axis.text.x     = element_text(angle = 45, hjust = 1),
+      legend.position = "bottom"
+    )
+}
+
+fig2 <- make_phase_plot(two_parts_df_exp1 %>% filter(!is_catch_trial),
+                        max_trial = 60, subtitle = "Exp. 1",
+                        show_chance_label = TRUE) /
+        make_phase_plot(two_parts_df_exp2 %>% filter(!is_catch_trial),
+                        max_trial = 50, subtitle = "Exp. 2") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+ggsave("figs/fig_learning_curves.png", fig2,
+       width = 3, height = 5, dpi = 300, units = "in")
+
+fig2
+```
+
+```{r cluster_perm, include=FALSE, cache=FALSE}
+
+# Cluster-based permutation test: Part 1 vs Part 2 (within-subject, trial-binned)
+# - Bins of 5 trials (matching the learning curve plot)
+# - Cluster-forming threshold: p < 0.05 (two-sided t-test per bin)
+# - Maximum statistic: cluster size (number of consecutive significant bins)
+# - Permutation: 1000 sign-flips of each subject's full difference vector
+
+cluster_perm_test_binned <- function(df, max_trial, bin_width = 5,
+                                     n_perm = 1000, alpha = 0.05, seed = 42) {
+  set.seed(seed)
+
+  bins       <- make_bins(max_trial, bin_width)
+  bin_labels <- bins$labels
+
+  df_clean <- df %>%
+    filter(!is_catch_trial, !is.na(chose_onlystones_p2)) %>%
+    mutate(bin = factor(
+      cut(trial_num, breaks = bins$breaks, labels = bin_labels,
+          include.lowest = TRUE, right = TRUE),
+      levels = bin_labels
+    ))
+
+  # Per-subject per-bin difference: Part 2 – Part 1
+  bin_diffs <- df_clean %>%
+    group_by(subj_id, bin) %>%
+    summarise(
+      diff = mean(chose_onlystones_p2, na.rm = TRUE) -
+             mean(chose_onlystones,    na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  # Subjects × bins matrix
+  diff_wide <- bin_diffs %>%
+    pivot_wider(names_from = bin, values_from = diff) %>%
+    arrange(subj_id)
+  diff_mat <- as.matrix(diff_wide[, -1])
+  n_subj   <- nrow(diff_mat)
+
+  # t-test per bin (column)
+  bin_ttest <- function(mat) {
+    t(apply(mat, 2, function(d) {
+      d <- d[!is.na(d)]
+      if (length(d) < 2) return(c(t_stat = NA_real_, p_val = NA_real_))
+      res <- t.test(d)
+      c(t_stat = unname(res$statistic), p_val = res$p.value)
+    }))
+  }
+
+  # Find contiguous clusters of significant bins
+  find_clusters <- function(p_vec, alpha) {
+    sig      <- !is.na(p_vec) & p_vec < alpha
+    clusters <- list()
+    start    <- NA_integer_
+    for (i in seq_along(sig)) {
+      if ( sig[i] &&  is.na(start)) start <- i
+      if (!sig[i] && !is.na(start)) {
+        clusters <- c(clusters, list(seq(start, i - 1)))
+        start    <- NA_integer_
+      }
+    }
+    if (!is.na(start)) clusters <- c(clusters, list(seq(start, length(sig))))
+    clusters
+  }
+
+  obs       <- bin_ttest(diff_mat)
+  obs_p     <- obs[, "p_val"]
+  obs_clust <- find_clusters(obs_p, alpha)
+  obs_sizes <- lengths(obs_clust)
+
+  # Permutation: sign-flip each subject's entire difference vector
+  null_max <- integer(n_perm)
+  for (b in seq_len(n_perm)) {
+    signs    <- sample(c(-1L, 1L), n_subj, replace = TRUE)
+    perm_mat <- sweep(diff_mat, 1, signs, `*`)
+    perm_p   <- bin_ttest(perm_mat)[, "p_val"]
+    perm_cl  <- find_clusters(perm_p, alpha)
+    null_max[b] <- if (length(perm_cl)) max(lengths(perm_cl)) else 0L
+  }
+
+  threshold <- quantile(null_max, 0.95)
+  sig_idx   <- which(obs_sizes > threshold)
+
+  list(
+    bins           = bin_labels,
+    obs_t          = setNames(obs[, "t_stat"], bin_labels),
+    obs_p          = setNames(obs_p,           bin_labels),
+    obs_clusters   = lapply(obs_clust, function(i) bin_labels[i]),
+    cluster_sizes  = obs_sizes,
+    null_max_sizes = null_max,
+    threshold      = threshold,
+    sig_clusters   = lapply(obs_clust[sig_idx], function(i) bin_labels[i])
+  )
+}
+
+e1_cpt <- cluster_perm_test_binned(two_parts_df_exp1, max_trial = 60,
+                                   n_perm = 1000, seed = 42)
+e2_cpt <- cluster_perm_test_binned(two_parts_df_exp2, max_trial = 50,
+                                   n_perm = 1000, seed = 42)
+
+for (nm in c("Experiment 1", "Experiment 2")) {
+  cpt <- if (nm == "Experiment 1") e1_cpt else e2_cpt
+  cat("===", nm, "===\n")
+  cat("Null 95th percentile (max cluster size):", cpt$threshold, "\n")
+  for (i in seq_along(cpt$obs_clusters)) {
+    flag <- if (cpt$cluster_sizes[i] > cpt$threshold) "  *** SIGNIFICANT ***" else ""
+    cat(sprintf("  Cluster %d: bins %s  (size = %d)%s\n",
+                i, paste(cpt$obs_clusters[[i]], collapse = ", "),
+                cpt$cluster_sizes[i], flag))
+  }
+  cat("Significant cluster bin labels:\n")
+  print(cpt$sig_clusters)
+  cat("\n")
+}
+```
+
+```{r figure_exp1_only, fig.width=5, fig.height=3.33, cache=FALSE}
+
+scatter_data_e1  <- scatter_data  %>% filter(experiment == "1")
+right_summary_e1 <- right_summary %>% filter(experiment == "1")
+
+cor_r_e1     <- round(e1_cor_stones$estimate, 2)
+cor_p_txt_e1 <- if (e1_cor_stones$p.value < .001) "< .001" else
+                  paste0("= ", round(e1_cor_stones$p.value, 3))
+cor_annotation_e1 <- paste0("r = ", cor_r_e1, ", p ", cor_p_txt_e1)
+
+p_scatter_e1 <- ggplot(scatter_data_e1,
+                       aes(x = pstones, y = memory_acc_stones)) +
+  geom_point(aes(shape = experiment, fill = rule_label),
+             color = "black", alpha = 0.3, size = 2.8) +
+  geom_smooth(method = "lm", se = TRUE, color = "black",
+              fill = "grey70", linewidth = 0.8) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", linewidth = 0.4) +
+  annotate("text", x = Inf, y = 0.03, label = cor_annotation_e1,
+           hjust = 1.05, size = 3.5) +
+  scale_shape_manual(values = exp_shapes, labels = c("1" = "Exp. 1"), name = NULL) +
+  scale_fill_manual(values = rule_fills, guide = "none") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  labs(x = expression("P("*italic("stones only")*") in Part 1"),
+       y = expression("Memory accuracy ("*italic("stones only")*")")) +
+  theme_minimal() +
+  theme(aspect.ratio = 1, legend.position = "none",
+        plot.margin = margin(2, 4, 2, 2))
+
+p_means_e1 <- ggplot(right_summary_e1,
+                     aes(x = rule_label, y = m,
+                         shape = experiment, fill = rule_label,
+                         group = interaction(rule_label, experiment))) +
+  geom_point(color = "black", alpha = 0.8, size = 3,
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = m - se, ymax = m + se),
+                color = "black", width = 0.12,
+                position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", linewidth = 0.4) +
+  annotate("text", x = Inf, y = 1/3, label = "chance (1/3)",
+           hjust = 1.05, vjust = -0.4, size = 2.8) +
+  scale_shape_manual(values = exp_shapes, labels = c("1" = "Exp. 1"), name = NULL) +
+  scale_fill_manual(values = rule_fills, guide = "none") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  labs(x = "Mentioned rule",
+       y = expression("Memory accuracy ("*italic("stones only")*")")) +
+  theme_minimal() +
+  theme(axis.ticks = element_line(color = "grey50"),
+        legend.position = "none",
+        plot.margin = margin(2, 2, 2, 4))
+
+ggsave("figs/fig_scatter_exp1.png", p_scatter_e1,
+       width = 3.33, height = 3.33, dpi = 300, units = "in")
+
+ggsave("figs/fig_means_exp1.png", p_means_e1,
+       width = 2.5, height = 3.33, dpi = 300, units = "in")
+
+p_scatter_e1
+p_means_e1
+```
+
+```{r figure_pstones_errors, fig.width=2.5, fig.height=3.33, cache=FALSE}
+
+h6_df <- combined_df %>%
+  filter(!is_catch_trial, chose_gems, !is_consistent)
+
+control_opts <- glmerControl(optimizer = "bobyqa")
+
+# Overall model: is P(stones only) different from 0.5?
+h6_overall <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                    data = h6_df, family = binomial, control = control_opts)
+
+# By experiment
+h6_e1 <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+               data = filter(h6_df, experiment == 1),
+               family = binomial, control = control_opts)
+
+h6_e2 <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+               data = filter(h6_df, experiment == 2),
+               family = binomial, control = control_opts)
+
+# Intercept-only models split by mentioned_rule × experiment
+h6_e1_yes <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                   data = filter(h6_df, experiment == 1,  mentioned_rule),
+                   family = binomial, control = control_opts)
+
+h6_e1_no  <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                   data = filter(h6_df, experiment == 1, !mentioned_rule),
+                   family = binomial, control = control_opts)
+
+h6_e2_yes <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                   data = filter(h6_df, experiment == 2,  mentioned_rule),
+                   family = binomial, control = control_opts)
+
+h6_e2_no  <- glmer(chose_onlystones_p2 ~ 1 + (1 | subj_id),
+                   data = filter(h6_df, experiment == 2, !mentioned_rule),
+                   family = binomial, control = control_opts)
+
+# mentioned_rule as fixed effect (group comparison)
+h6_rule_e1 <- glmer(chose_onlystones_p2 ~ mentioned_rule + (1 | subj_id),
+                    data = filter(h6_df, experiment == 1),
+                    family = binomial, control = control_opts)
+
+h6_rule_e2 <- glmer(chose_onlystones_p2 ~ mentioned_rule + (1 | subj_id),
+                    data = filter(h6_df, experiment == 2),
+                    family = binomial, control = control_opts)
+
+inv_logit <- function(x) 1 / (1 + exp(-x))
+
+# Helper: extract prob, β, SE, z, p from intercept-only glmer
+glmer_stats <- function(model) {
+  cf  <- summary(model)$coefficients
+  list(
+    prob = printnum(round(plogis(cf[1, "Estimate"]), 2)),
+    b    = printnum(round(cf[1, "Estimate"],   2)),
+    se   = printnum(round(cf[1, "Std. Error"], 2)),
+    z    = printnum(round(cf[1, "z value"],    2)),
+    p    = printp(cf[1, "Pr(>|z|)"])
+  )
+}
+
+pstones_error_summary <- combined_df %>%
+  filter(!is_catch_trial, chose_gems, !is_consistent) %>%
+  mutate(rule_label = factor(ifelse(mentioned_rule, "Yes", "No"), levels = c("Yes", "No")),
+         experiment = as.character(experiment)) %>%
+  group_by(subj_id, rule_label, mentioned_rule, experiment) %>%
+  summarise(pstone = mean(chose_onlystones_p2, na.rm = TRUE), .groups = "drop") %>%
+  group_by(rule_label, mentioned_rule, experiment) %>%
+  summarise(
+    m  = mean(pstone, na.rm = TRUE),
+    se = sd(pstone,  na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+
+p_pstones_errors <- ggplot(pstones_error_summary,
+                           aes(x = rule_label, y = m,
+                               shape = experiment, fill = rule_label,
+                               group = interaction(rule_label, experiment))) +
+  geom_point(color = "black", alpha = 0.8, size = 3,
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = m - se, ymax = m + se),
+                color = "black", width = 0.12,
+                position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.4) +
+  annotate("text", x = Inf, y = 0.5, label = "chance (0.5)",
+           hjust = 1.05, vjust = -0.4, size = 2.8) +
+  scale_shape_manual(values = exp_shapes,
+                     labels = c("1" = "Exp. 1", "2" = "Exp. 2"),
+                     name = NULL) +
+  scale_fill_manual(values = rule_fills, guide = "none") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  labs(x = "Mentioned rule",
+       y = expression("P("*italic("stones only")*") | error")) +
+  theme_minimal() +
+  theme(axis.ticks = element_line(color = "grey50"),
+        legend.position = "none")
+
+ggsave("figs/fig_pstones_errors.png", p_pstones_errors,
+       width = 2.5, height = 3.33, dpi = 300, units = "in")
+
+p_pstones_errors
+```
+
+Participants varied in their ability to notice the hidden rule, measured as the probability of touching the *stones only* position in part 1. We asked whether this variability predicted memory accuracy in part 2, specifically for memory-inconsistent decisions (that is, selections of the *stones only* position). If participants use their learned policy to reconstruct past decisions, those participants who successfully learned the hidden rule should have worse memory for decisions that are incongruent with their current, learned policy. This is what we found. Across both experiments, poor rule learning in part 1 was positively correlated with memory accuracy for rule-inconsistent decisions in part 2 (Exp. 1: *r* = `r printnum(e1_cor_stones$estimate)`, `r printp(e1_cor_stones$p.value)`; Exp. 2: *r* = `r printnum(e2_cor_stones$estimate)`, `r printp(e2_cor_stones$p.value)`). This effect was selective to rule-inconsistent decisions: we observed no correlation between rule learning and memory for rule-consistent decisions (Exp. 1: *r* = `r printnum(e1_cor_not_stones$estimate)`, `r printp(e1_cor_not_stones$p.value)`; Exp. 2: *r* = `r printnum(e2_cor_not_stones$estimate)`, `r printp(e2_cor_not_stones$p.value)`; pooled: *r* = `r printnum(combined_cor_not_stones$estimate)`, `r printp(combined_cor_not_stones$p.value)`). Furthermore, when asked at the end of the experiment if they noticed a regularity in the location of gems, a subset of `r e1 %>% filter(mentioned_rule) %>% nrow()` participants in Exp. 1 and `r e2 %>% filter(mentioned_rule) %>% nrow()` participants in Exp. 2 mentioned the position of boxes. These "explicit learners" had significantly *worse* memory for their rule-inconsistent decisions than did other participants (Exp. 1: `r e1 %>% filter(mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()` vs. `r e1 %>% filter(!mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()`, `r apa_print(e1_ttest_stones)$statistic`; Exp. 2: `r e2 %>% filter(mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()` vs. `r e2 %>% filter(!mentioned_rule) %>% pull(memory_acc_stones) %>% mean(na.rm=TRUE) %>% printnum()`, `r apa_print(e2_ttest_stones)$statistic`). Again, this effect was selective for memory for rule-inconsistent actions. No group differences were observed for memory-consistent actions (Exp. 1: `r e1 %>% filter(mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()` vs. `r e1 %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()`, `r apa_print(e1_ttest_not_stones)$statistic`; Exp. 2: `r e2 %>% filter(mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()` vs. `r e2 %>% filter(!mentioned_rule) %>% pull(memory_acc_not_stones) %>% mean(na.rm=TRUE) %>% printnum()`, `r apa_print(e2_ttest_not_stones)$statistic`; pooled: `r apa_print(combined_ttest_not_stones)$statistic`).
+
+So far, we mostly focused on the effects of outcome and rule knowledge on the accuracy of memory for past decisions, showing that participants better remember their successful guesses than their unsuccessful ones. In the following, we zero in on the effects of outcome and rule knowledge not on the proportion of errors, but on the types of errors participants make. 
+As a first test we focused on a subset of trials in which participants failed to remember that they had made a correct choice (that is, chose the box containing gems) in part 1. In these trials, participants had chosen the box of gems in part 1 and in part 2 either selected the stones only box or the box that sometimes (but not in this trial) contained gems (see Fig. 6A). This test deconfounds the bias against the stones only box from a bias to be correct or from a memory for originally biased actions. Given that different participants had  different numbers of error trials, we fitted a mixed effects logistic regression model with a random intercept for participant. In Experiment 1, the estimated probability of selecting the stones only option in the specified subset of trials was `r glmer_stats(h6_e1)$prob`, significantly below the chance level of 0.5 (β = `r glmer_stats(h6_e1)$b`, SE = `r glmer_stats(h6_e1)$se`, *z* = `r glmer_stats(h6_e1)$z`, *p* `r glmer_stats(h6_e1)$p`). This effect was solely driven by participants who mentioned the rule (*p*(stones only | error) = `r glmer_stats(h6_e1_yes)$prob`; β = `r glmer_stats(h6_e1_yes)$b`, SE = `r glmer_stats(h6_e1_yes)$se`, *z* = `r glmer_stats(h6_e1_yes)$z`, *p* `r glmer_stats(h6_e1_yes)$p`), and was not evident among participants who did not mention the rule (*p*(stones only | error) = `r glmer_stats(h6_e1_no)$prob`; β = `r glmer_stats(h6_e1_no)$b`, SE = `r glmer_stats(h6_e1_no)$se`, *z* = `r glmer_stats(h6_e1_no)$z`, *p* `r glmer_stats(h6_e1_no)$p`). This was replicated in Experiment 2, where the estimated probability of selecting the stones only box was `r glmer_stats(h6_e2)$prob` (β = `r glmer_stats(h6_e2)$b`, SE = `r glmer_stats(h6_e2)$se`, *z* = `r glmer_stats(h6_e2)$z`, *p* `r glmer_stats(h6_e2)$p`), again driven solely by those who explicitly mentioned the rule (*p*(stones only | error) = `r glmer_stats(h6_e2_yes)$prob`; β = `r glmer_stats(h6_e2_yes)$b`, SE = `r glmer_stats(h6_e2_yes)$se`, *z* = `r glmer_stats(h6_e2_yes)$z`, *p* `r glmer_stats(h6_e2_yes)$p`), but not among those who did not (*p*(stones only | error) = `r glmer_stats(h6_e2_no)$prob`; β = `r glmer_stats(h6_e2_no)$b`, SE = `r glmer_stats(h6_e2_no)$se`, *z* = `r glmer_stats(h6_e2_no)$z`, *p* `r glmer_stats(h6_e2_no)$p`). These results show a robust and systematic avoidance of the stones only box in errors controlling for reward, which we interpret to be a bias rooted in (faulty) model-based memory reconstruction: participants avoided choosing the option which they believed they would not have chosen, given what they currently know (but did not necessarily know back then).

@@ -34,7 +34,7 @@ library(stringr)
 library(effsize)
 
 
-file_list <- '.../data/experiment2/experiment2_data.txt'
+file_list <- '../data/experiment2/experiment2_data.txt'
 
 raw_df <- map_dfr(file_list, function(file) {
 

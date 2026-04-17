@@ -34,11 +34,11 @@ library(tidyverse)
 library(stringr)
 library(effsize)
 
-two_parts_df_exp1 <-read.csv("...data/experiment1/two_parts_df_exp1.csv")
+two_parts_df_exp1 <-read.csv("../data/experiment1/two_parts_df_exp1.csv")
 
-two_parts_df_exp2 <- read.csv("...data/experiment2/two_parts_df_exp2.csv")
+two_parts_df_exp2 <- read.csv("../data/experiment2/two_parts_df_exp2.csv")
 
-two_parts_df_exp3 <- read.csv("...data/experiment3/two_parts_df_exp3.csv")
+two_parts_df_exp3 <- read.csv("../data/experiment3/two_parts_df_exp3.csv")
 
 
 p1_colour <- '#69b3a2'

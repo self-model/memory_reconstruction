@@ -304,7 +304,8 @@ make_phase_plot_dynamic <- function(df,
                                     max_trial,
                                     plot_subtitle = NULL,
                                     plot_title = NULL,
-                                    bin_width = 5) {
+                                    bin_width = 5,
+                                    ylim = c(0.15,0.37)) {
   bins <- make_bins(max_trial = max_trial, bin_width = bin_width)
   breaks <- bins$breaks
   bin_labels <- bins$labels
@@ -378,6 +379,7 @@ scale_linetype_discrete(
     "part2" = "Repeat your guesses!"
   )
 ) +
+    scale_y_continuous(limits=ylim)+
     labs(x = "Trial Bin", y = "P(*stones only*)", title = plot_title, subtitle = plot_subtitle) + theme_minimal(base_size = 12) +
   theme(
     plot.title = element_markdown(size = 12, hjust = 0.5),
@@ -465,16 +467,18 @@ learn_plot_exp1 <- make_phase_plot_dynamic(
   max_trial = 60,
   plot_title = NULL,
   plot_subtitle = ""
-) +
-  make_sig_layer(results_exp1, y = 0.15)
+) 
+#+
+#  make_sig_layer(results_exp1, y = 0.15)
 
 learn_plot_exp2 <- make_phase_plot_dynamic(
   two_parts_df_exp2 %>% filter(!is_catch_trial),
   max_trial = 50,
   plot_title = NULL,
   plot_subtitle = ""
-) +
-  make_sig_layer(results_exp2, y = 0.15)
+) 
+#+
+#  make_sig_layer(results_exp2, y = 0.15)
 
 learn_plot_exp3 <- make_phase_plot_dynamic(
   two_parts_df_exp3 %>% filter(!is_catch_trial),

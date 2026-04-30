@@ -1,0 +1,307 @@
+---
+title             : "The title"
+shorttitle        : "Title"
+
+author: 
+  - name          : "First Author"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : "Postal address"
+    email         : "my@email.com"
+    role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
+      - "Conceptualization"
+      - "Writing - Original Draft Preparation"
+      - "Writing - Review & Editing"
+  - name          : "Ernst-August Doelle"
+    affiliation   : "1,2"
+    role:
+      - "Writing - Review & Editing"
+      - "Supervision"
+
+affiliation:
+  - id            : "1"
+    institution   : "Wilhelm-Wundt-University"
+  - id            : "2"
+    institution   : "Konstanz Business School"
+
+authornote: |
+  Add complete departmental affiliations for each author here. Each new line herein must be indented, like this line.
+
+  Enter author note here.
+
+abstract: |
+  One or two sentences providing a **basic introduction** to the field,  comprehensible to a scientist in any discipline.
+  Two to three sentences of **more detailed background**, comprehensible  to scientists in related disciplines.
+  One sentence clearly stating the **general problem** being addressed by  this particular study.
+  One sentence summarizing the main result (with the words "**here we show**" or their equivalent).
+  Two or three sentences explaining what the **main result** reveals in direct comparison to what was thought to be the case previously, or how the  main result adds to previous knowledge.
+  One or two sentences to put the results into a more **general context**.
+  Two or three sentences to provide a **broader perspective**, readily comprehensible to a scientist in any discipline.
+  
+  <!-- https://tinyurl.com/ybremelq -->
+  
+keywords          : "keywords"
+wordcount         : "X"
+
+bibliography      : "r-references.bib"
+
+floatsintext      : no
+linenumbers       : yes
+draft             : no
+mask              : no
+
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+
+classoption       : "man"
+output            : papaja::apa6_word
+---
+
+```{r global_options, include=FALSE}
+set.seed(42)
+knitr::opts_chunk$set(fig.crop = F, fig.pos = "tb", fig.path='figs/',
+                      echo=F, warning=F, cache=T, 
+                      message=F, sanitize = T, 
+                      fig.width = 10, fig.height = 5)
+```
+
+```{r, libraries, echo=FALSE, warning=FALSE, cache=F}
+
+library('ggplot2')
+library('tidyverse')
+library('papaja')
+library('jsonlite')
+library('patchwork')
+
+```
+
+```{r load-data, warning=FALSE}
+
+source('../analysis/loadAndFormatSymmetry.R') 
+
+```
+
+## Results
+
+
+```{r subject-comments}
+
+Exp1.comments <- Exp1.df %>%
+  filter(!is.na(responses) & is.na(test_part)) %>%
+  dplyr::select(subj_id,condition,responses) %>%
+  mutate(comments = map(responses, ~fromJSON(.) %>%as.data.frame()))%>%
+  unnest(comments)%>%
+  dplyr::select(subj_id,condition,worker_comments)%>%
+  filter(!is.na(worker_comments) & worker_comments!="") %>%
+  mutate(worker_comments = gsub("[\r\n]", "",worker_comments))
+
+```
+
+
+```{r how long}
+seconds <- export_data$Time.taken%>%median(na.rm=T)
+
+# Calculate minutes and remaining seconds
+mins <- seconds %/% 60
+secs <- seconds %% 60
+
+# Format as M:SS or MM:SS
+time_taken = sprintf("%d:%02d", mins, secs)  # Returns "3:05"
+```
+
+`r Exp1.df$subj_id%>%unique()%>%length()` English-speaking participants (recruited via **Prolific.com**) completed Exp. 1 and passed our two pre-registered attention checks. In line with our pre-registration, we only analysed the first 150 participants who completed the experiment in each group.  The experiment was approximately six and a half minutes long (median = `r time_taken`), including consent forms and debrief. 
+
+
+```{r design, echo=FALSE, fig.cap="Experimental design, Exp. 1. Left: in part 1 of the experiment, participants attempted to reveal all black squares in a 6x6 grid while touching as few white squares as possible. Each round started with several black squares (one from each group) revealed (marked in black), and the others hidden (marked in gray). Round 1 was identical for all participants, but game boards in rounds 2-4 were symmetric or asymmetric for different participants. Top right: In the special bonus round, participants were instructed to repeat their guesses from part 1. Bottom right: the screen as it appeared to participants during the game. Unrevealed cards were marked in yellow, and became white or black once clicked.", out.width = '75%'}
+knitr::include_graphics("figures/design.png")
+```
+
+In part 1 of the experiment, participants attempted to reveal all black squares in a 6-by-6 grid while touching as few white squares as possible. Each game round started with three or four black squares revealed, and participants were told that all black squares were clustered in groups of 2-4 around the revealed squares. Crucially, while round 1 was identical for all participants (top left grid in Fig. \@ref(fig:design)), game boards in rounds 2-4 were importantly different for the two groups. In the symmetric group, these boards were symmetric along the vertical axis, but they were asymmetric for participants in the asymmetric group. This way, by the end of the first part of the experiment, only participants in the "symmetric" group learned a hidden rule: all game boards are symmetric.  
+
+Once participants completed the first part of the experiment, they were introduced to a “Special bonus round”. They were told that they will play round number 1 again, but this time they were shown the location of all hidden black squares ahead of playing. We then explained that their goal in this round is different: they need to make the same guesses they made in round number 1, in the same order. We offered a \$2 bonus to participants who succeeded in doing that, and \$1 if they got close enough. Participants continued to the bonus round only after correctly answering a comprehension check, ensuring that they understood that their goal was to repeat their guesses from round 1, not to reveal the black squares with as few guesses as before.
+
+
+```{r H1 learning}
+
+Exp1.touched_white <- Exp1.filtered_click_log %>%
+  group_by(condition,subj_id,test_part,round) %>%
+  summarise(n_misses = sum(ifelse(hit==0,1,0)))
+
+Exp1.H1_board1 <- t.test(
+  Exp1.touched_white %>%
+    filter(condition=='asymmetric' & test_part=='game' & round==1) %>%
+    pull(n_misses),
+  Exp1.touched_white %>%
+    filter(condition=='symmetric' & test_part=='game' & round==1) %>%
+    pull(n_misses)
+);
+
+Exp1.H1_board2 <- t.test(
+  Exp1.touched_white %>%
+    filter(condition=='asymmetric' & test_part=='game' & round==2) %>%
+    pull(n_misses),
+  Exp1.touched_white %>%
+    filter(condition=='symmetric' & test_part=='game' & round==2) %>%
+    pull(n_misses)
+)
+
+Exp1.H1_board3 <- t.test(
+  Exp1.touched_white %>%
+    filter(condition=='asymmetric' & test_part=='game' & round==3) %>%
+    pull(n_misses),
+  Exp1.touched_white %>%
+    filter(condition=='symmetric' & test_part=='game' & round==3) %>%
+    pull(n_misses)
+)
+
+Exp1.H1_board4 <- t.test(
+  Exp1.touched_white %>%
+    filter(condition=='asymmetric' & test_part=='game' & round==4) %>%
+    pull(n_misses),
+  Exp1.touched_white %>%
+    filter(condition=='symmetric' & test_part=='game' & round==4) %>%
+    pull(n_misses)
+)
+```
+
+As expected, the symmetric and asymmetric groups had a similar number of misses in round number 1 (Symmetric: `r Exp1.touched_white%>%filter(condition=='symmetric' & round==1) %>%pull(n_misses)%>%mean()%>%printnum()`; Asymmetric: `r Exp1.touched_white%>%filter(condition=='asymmetric' & round==1) %>%pull(n_misses)%>%mean()%>%printnum()`; `r apa_print(Exp1.H1_board1)$statistic`), but, in line with our hypothesis, the symmetric group performed better in round number 2 (`r Exp1.touched_white%>%filter(condition=='symmetric' & round==2) %>%pull(n_misses)%>%mean()%>%printnum()` vs. `r Exp1.touched_white%>%filter(condition=='asymmetric' & round==2) %>%pull(n_misses)%>%mean()%>%printnum()`), 3 (`r Exp1.touched_white%>%filter(condition=='symmetric' & round==3) %>%pull(n_misses)%>%mean()%>%printnum()` vs. `r Exp1.touched_white%>%filter(condition=='asymmetric' & round==3) %>%pull(n_misses)%>%mean()%>%printnum()`), and 4 (`r Exp1.touched_white%>%filter(condition=='symmetric' & round==4) %>%pull(n_misses)%>%mean()%>%printnum()` vs. `r Exp1.touched_white%>%filter(condition=='asymmetric' & round==4) %>%pull(n_misses)%>%mean()%>%printnum()`; all p's<0.001), indicating that they learned and benefited from the symmetry rule (see Fig. \@ref(fig:Exp1results), top panel, purple lines). 
+
+
+```{r Exp1results, echo=FALSE, fig.cap="Number of white squares touched (misses) in the game and memory rounds, Exp. 1, as a function of round number (upper panel), and as a function of participants' answer to the debrief question (lower panel). ***: p<0.001", out.width = '75%'}
+knitr::include_graphics("figures/misses.png")
+```
+
+
+```{r H2 reconstruction misses}
+
+
+Exp1.H2 <- t.test(
+  Exp1.touched_white %>%
+    filter(condition=='asymmetric' & test_part=='memory') %>%
+    pull(n_misses),
+  Exp1.touched_white %>%
+    filter(condition=='symmetric' & test_part=='memory') %>%
+    pull(n_misses)
+);
+
+Exp1.H2_positive_n_misses <- t.test(
+  Exp1.touched_white %>%
+    filter(condition=='asymmetric' & test_part=='memory') %>%
+    filter(n_misses>0) %>%
+    pull(n_misses),
+  Exp1.touched_white %>%
+    filter(condition=='symmetric' & test_part=='memory') %>%
+    filter(n_misses>0) %>%
+    pull(n_misses)
+);
+
+
+```
+
+Our central hypothesis of interest was that, if current knowledge distorts memory of actions performed in a different state of knowledge, the symmetric group should remember having touched fewer white cards in round number 1 compared to the asymmetric group. Once a player knows that all boards are symmetric, he or she may behave as if they knew it all along and misremember having guessed according to this state of knowledge from the very first board. However, this was not the case: participants in the symmetric and asymmetric groups had a similar number of misses in their reconstructed games (symmetric: `r Exp1.touched_white %>% filter(condition=='symmetric' & test_part=='memory') %>% pull(n_misses) %>% mean() %>% printnum()` misses on average; asymmetric: `r Exp1.touched_white %>% filter(condition=='asymmetric' & test_part=='memory') %>% pull(n_misses) %>% mean() %>% printnum()`; `r apa_print(Exp1.H2)$statistic`; Fig \@ref(fig:Exp1results), top panel, beige markers). 
+
+```{r time passed}
+
+time_passed_df<- Exp1.df %>% 
+  filter(lead(test_part=='memory') | (test_part=='game' & grid_number==1)) %>%
+  dplyr::select(subj_id,trial_type,time_elapsed) %>%
+  spread(trial_type,time_elapsed) %>%
+  mutate(diff=(instructions-findSquares)/1000) %>% 
+  filter(subj_id %in% Exp1.filtered_click_log$subj_id)
+
+mins <- time_passed_df$diff%>%median() %/% 60
+secs <- time_passed_df$diff%>%median() %>% round() %% 60
+
+# Format as M:SS or MM:SS
+time_passed = sprintf("%d:%02d", mins, secs) 
+
+```
+
+Crucially, however, this was not due to participants' success in remembering their number of misses: participants touched an overwhelmingly lower number of white cards in the memory round (mean: `r Exp1.touched_white %>% filter(test_part=='memory') %>% pull(n_misses) %>% mean() %>% printnum()`) compared to the first game round (mean: `r Exp1.touched_white %>% filter(test_part=='game' & round==1) %>% pull(n_misses) %>% mean() %>% printnum()`; `r apa_print(t.test(Exp1.touched_white %>% filter(test_part=='game' & round==1) %>% pull(n_misses)-Exp1.touched_white %>% filter(test_part=='memory') %>% pull(n_misses)))$statistic`). This underestimation effect was present in both groups of participants (symmetric: `r apa_print(t.test(Exp1.touched_white %>% filter(test_part=='game' & round==1 & condition=='symmetric') %>% pull(n_misses)-Exp1.touched_white %>% filter(test_part=='memory' & condition=='symmetric') %>% pull(n_misses)))$statistic`; asymmetric: `r apa_print(t.test(Exp1.touched_white %>% filter(test_part=='game' & round==1 & condition=='asymmetric') %>% pull(n_misses)-Exp1.touched_white %>% filter(test_part=='memory' & condition=='asymmetric') %>% pull(n_misses)))$statistic`), and was not driven by the `r Exp1.touched_white %>% filter(test_part=='memory' & n_misses==0)%>%nrow()` participants who recalled making no misses at all (with these participants excluded: `r apa_print(Exp1.touched_white%>%filter(round==1 | test_part=='memory')%>%dplyr::select(-round)%>%spread(test_part,n_misses)%>%filter(memory>0)%>%mutate(diff=game-memory)%>%pull(diff)%>%t.test())$statistic`). This startling underestimation of errors was also not driven by participants’ attempt to finish the task quickly: a separate group of `r pilot.n_misses%>%nrow()` participants reported how many white cards they believed they touched in round 1 before moving on to the special bonus round. This group reported making an average of `r pilot.n_misses$estimate%>%mean()%>%printnum()` misses (SE=`r pilot.n_misses$estimate%>%se()%>%printnum()`), compared to an actual `r pilot.n_misses$game%>%mean()%>%printnum()` misses (SE=`r pilot.n_misses$game%>%se()%>%printnum()` in round 1 of the game. Of note, while the entire experiment took around six and a half minutes to complete, a median of `r time_passed` minutes have passed between the end of round 1 and the beginning of the memory round (SE=`r printnum(time_passed_df$diff%>%se())` seconds). And still, participants underestimated the number of misses by more than one third. 
+
+
+```{r estimates, echo=FALSE, cache=TRUE}
+
+# Get estimates
+Exp1.estimates <- Exp1.df %>% 
+  filter(
+    subj_id %in% c(Exp1.asymmetric_participants[1:150],
+                   Exp1.symmetric_participants[1:150]),
+    test_part == 'estimate'
+  ) %>%
+  mutate(estimate = case_when(
+    grepl('\\bfewer\\b', responses, ignore.case = TRUE) ~ 'fewer',
+    grepl('\\bmore\\b', responses, ignore.case = TRUE) ~ 'more',
+    TRUE ~ 'same'
+  )) %>%
+  select(condition, subj_id, estimate)
+
+# Combine with performance data
+Exp1.performance_and_estimates <- Exp1.touched_white %>%
+  filter(test_part == 'memory' | (test_part == 'game' & round == 1)) %>%
+  select(condition, subj_id, test_part, n_misses) %>%
+  pivot_wider(names_from = test_part, values_from = n_misses) %>%
+  inner_join(Exp1.estimates, by = c("condition", "subj_id"))  # Explicit join
+
+# Calculate stats for each group
+fewer_game <- Exp1.performance_and_estimates %>% 
+  filter(estimate == 'fewer') %>% 
+  pull(game) %>% 
+  mean(na.rm = TRUE)
+
+fewer_memory <- Exp1.performance_and_estimates %>% 
+  filter(estimate == 'fewer') %>% 
+  pull(memory) %>% 
+  mean(na.rm = TRUE)
+
+same_game <- Exp1.performance_and_estimates %>% 
+  filter(estimate == 'same') %>% 
+  pull(game) %>% 
+  mean(na.rm = TRUE)
+
+same_memory <- Exp1.performance_and_estimates %>% 
+  filter(estimate == 'same') %>% 
+  pull(memory) %>% 
+  mean(na.rm = TRUE)
+
+more_game <- Exp1.performance_and_estimates %>% 
+  filter(estimate == 'more') %>% 
+  pull(game) %>% 
+  mean(na.rm = TRUE)
+
+more_memory <- Exp1.performance_and_estimates %>% 
+  filter(estimate == 'more') %>% 
+  pull(memory) %>% 
+  mean(na.rm = TRUE)
+
+# T-tests
+same_test <- t.test(
+  Exp1.performance_and_estimates %>% filter(estimate == 'same') %>% pull(game),
+  Exp1.performance_and_estimates %>% filter(estimate == 'same') %>% pull(memory),
+  paired = TRUE
+)
+
+more_test <- t.test(
+  Exp1.performance_and_estimates %>% filter(estimate == 'more') %>% pull(game),
+  Exp1.performance_and_estimates %>% filter(estimate == 'more') %>% pull(memory),
+  paired = TRUE
+)
+
+estimate_table <- Exp1.estimates %>%
+  group_by(condition, estimate) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = estimate, values_from = n, values_fill = 0) %>%
+  column_to_rownames("condition")
+
+# Chi-square test
+chi_test <- chisq.test(estimate_table)
+
+
+
+```
+
+To measure participants' awareness of this effect, we asked them whether the number of white cards they touched in the memory round was less, the same, or more than the number touched in the first round of part 1 (fig \@ref(fig:Exp1results), lower panel). As a group, participants knew that they underestimated the number of misses in part 1: a majority of `r (100*Exp1.estimates %>% filter(estimate=='fewer') %>% nrow()/Exp1.estimates%>%nrow())%>%round()`\% of all participants reported making fewer misses in part 2, followed by `r (100*Exp1.estimates %>% filter(estimate=='more') %>% nrow()/Exp1.estimates%>%nrow())%>%round()`\% for "more" and `r (100*Exp1.estimates %>% filter(estimate=='same') %>% nrow()/Exp1.estimates%>%nrow())%>%round()`\% for "same" responses. These counts were similar between the two groups ($\chi^2$(`r chi_test$parameter`) = `r printnum(chi_test$statistic)`, $p$ `r printp(chi_test$p.value, add_equals=T)`).
+
+Participants' responses were calibrated relative to their actual performance in the memory round: those who reported making fewer misses made `r printnum(fewer_memory)` misses on average in the memory round, followed by `r printnum(same_memory)` for "same" responders and `r printnum(more_memory)` for "more" responders. While calibrated, this measure also revealed that participants truly underestimated the number of misses they committed when playing. Participants who reported making the exact same number of misses in fact touched `r printnum(same_game - same_memory)` fewer white squares in the memory round (`r apa_print(same_test)$statistic`), and those who reported committing more misses in the memory round relative to the game round had a similar number of misses in the two rounds (`r apa_print(more_test)$statistic`; Fig \@ref(fig:Exp1results), lower panel). Together, it seems that participants had only partial insight into their tendency to remember their performance as better than it actually was.
+

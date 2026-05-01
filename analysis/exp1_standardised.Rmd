@@ -413,7 +413,13 @@ phase_2_pstones <- two_parts_df_exp1 %>%
   group_by(subj_id, mentioned_rule) %>%
   filter(!is_catch_trial) %>%
   summarise(pstones = mean(chose_onlystones))
-  
+
+trial_num_interaction_model <- glmer(
+  is_consistent ~ trial_num * chose_gems + (trial_num * chose_gems | subj_id),
+  data = filter(two_parts_df_exp1, !is_catch_trial),
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa") 
+)
 
 pstones_slopes <- two_parts_df_exp1 %>%
   group_by(subj_id, mentioned_rule) %>%
